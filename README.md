@@ -87,7 +87,7 @@
         │   Single → Sequential → GroupChat → Concurrent → MCP · RAG   │
         │                          │                                   │
         │                          ▼  FoundryChatClient                │
-        │                 Azure AI Foundry (GPT-4o 배포)               │
+        │                 Azure AI Foundry (gpt-5.4 배포)              │
         └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -130,7 +130,7 @@
 
 ### 1.2 Azure 리소스 프로비저닝
 
-예제 실행에는 **Azure AI Foundry 리소스·프로젝트·모델 배포**가 필요하고, 실습 9(RAG)에는
+예제 실행에는 **Azure AI Foundry 리소스·프로젝트·모델 배포**가 필요하고, 실습 6(RAG)에는
 추가로 **Azure AI Search 서비스**가 필요합니다. 포털에서 만들어도 되지만, 아래 `az` CLI로
 한 번에 프로비저닝할 수 있습니다. (Foundry 프로젝트·모델은 [Azure AI Foundry 포털](https://ai.azure.com)에서도 생성 가능합니다.)
 
@@ -165,14 +165,14 @@ az cognitiveservices account deployment create \
   --model-name gpt-5.4 --model-version 2026-03-05 --model-format OpenAI \
   --sku-name GlobalStandard --sku-capacity 10
 
-# 4) 임베딩 모델 배포 (실습 9 RAG 전용)
+# 4) 임베딩 모델 배포 (실습 6 RAG 전용)
 az cognitiveservices account deployment create \
   -n $FOUNDRY -g $RG \
   --deployment-name text-embedding-3-large \
   --model-name text-embedding-3-large --model-version 1 --model-format OpenAI \
   --sku-name Standard --sku-capacity 10
 
-# 5) Azure AI Search 서비스 생성 (실습 9 RAG 전용)
+# 5) Azure AI Search 서비스 생성 (실습 6 RAG 전용)
 #    --auth-options aadOrApiKey: 키리스(Entra ID) 데이터플레인 접근을 켭니다.
 #    (기본값은 API 키 전용이라, 생략하면 RAG 실행 시 'Forbidden' 오류가 납니다.)
 #    리전이 용량 부족(InsufficientResourcesAvailable)이면 다른 리전을 사용하세요.
@@ -192,7 +192,7 @@ az role assignment create --assignee $ME --role "Search Index Data Contributor" 
 az role assignment create --assignee $ME --role "Search Index Data Reader"       --scope $SEARCH_ID
 ```
 
-> **RAG 인덱스 생성**: 별도 명령이 필요 없습니다. 실습 9의 `06_rag_agent.py`가 **첫 실행 시
+> **RAG 인덱스 생성**: 별도 명령이 필요 없습니다. 실습 6의 `06_rag_agent.py`가 **첫 실행 시
 > 인덱스를 자동 생성**하고 문서를 임베딩·업로드합니다(멱등). 위에서 만든 **Search 서비스**만 있으면 됩니다.
 
 > **이미 만든 Search 서비스에서 'Forbidden'이 난다면** 키리스(Entra ID) 인증이 꺼져 있는
@@ -227,14 +227,14 @@ cp .env.example .env        # 아래 값 입력
 az login                    # 예제는 AzureCliCredential로 이 로그인 세션을 사용
 ```
 
-`.env` 값 (실습 1~5는 상단 2줄만 있으면 동작, 실습 9 RAG는 전체 필요):
+`.env` 값 (실습 1~5는 상단 2줄만 있으면 동작, 실습 6 RAG는 전체 필요):
 
 ```bash
 # 실습 1~6 공통 (Foundry 채팅)
 PROJECT_ENDPOINT=https://your-resource.services.ai.azure.com/api/projects/your-project
 MODEL_DEPLOYMENT_NAME=gpt-5.4
 
-# 실습 9 (RAG) — Azure AI Search + 임베딩
+# 실습 6 (RAG) — Azure AI Search + 임베딩
 SEARCH_SERVICE_ENDPOINT=https://your-search-service.search.windows.net
 SEARCH_INDEX_NAME=maf-lab-knowledge-v1
 AZURE_OPENAI_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
