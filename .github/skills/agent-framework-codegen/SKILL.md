@@ -16,9 +16,11 @@ description: "Microsoft Agent Framework SDK를 사용한 AI 에이전트·워크
 from agent_framework import Agent, MCPStreamableHTTPTool   # MCP 도구 연동(7절)
 from agent_framework.foundry import FoundryChatClient
 from agent_framework.orchestrations import (
-    HandoffBuilder,      # Handoff 워크플로우
+    SequentialBuilder,   # 순차(Sequential) 워크플로우
     GroupChatBuilder,    # GroupChat 워크플로우
     GroupChatState,      # GroupChat 발화자 선택 상태
+    ConcurrentBuilder,   # 동시(Concurrent) 워크플로우
+    HandoffBuilder,      # Handoff 워크플로우
 )
 from azure.identity import AzureCliCredential
 ```
