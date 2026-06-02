@@ -947,15 +947,21 @@ server.run()
 ### 배포 흐름
 
 ```bash
-pip install agent-framework agent-framework-foundry-hosting
+# ① 로컬 테스트용 패키지 설치 (배포 빌드는 각 폴더의 requirements.txt 사용)
+pip install agent-framework-core agent-framework-foundry agent-framework-foundry-hosting mcp
 azd ext install azure.ai.agents && azd auth login
 
-cd src/hosted_agents/01_single_agent      # 또는 02_sequential_workflow
-azd ai agent init -m ./agent.manifest.yaml   # azd 프로젝트 초기화
+# ② azd ai agent init 은 매니페스트 디렉터리와 분리된 빈 폴더에서 실행해야 합니다.
+#    같은 폴더에서 실행하면 "target is inside the manifest directory" 오류가 납니다.
+MANIFEST=$(pwd)/src/hosted_agents/01_single_agent/agent.manifest.yaml
+mkdir -p ~/deploy/single-agent && cd ~/deploy/single-agent
+azd ai agent init -m "$MANIFEST"             # azd 프로젝트 초기화
+
+cd maf-lab-single-agent
 azd ai agent run                             # 로컬 호스트(:8088)
-azd ai agent invoke --local "질문"            # 호출 테스트
-azd provision                                # (필요 시) 리소스 생성
-azd deploy                                   # 컨테이너 빌드 → ACR → Foundry 배포
+azd ai agent invoke --local "질문"            # 로컬 호출 테스트
+azd provision --no-prompt                    # (필요 시) 리소스 생성
+azd deploy --no-prompt                       # 컨테이너 빌드 → ACR → Foundry 배포
 ```
 
 배포 후 포털 **Assets → 에이전트 → Traces 탭**에서 단계별 모델 호출을 추적하고,
