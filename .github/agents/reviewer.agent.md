@@ -15,7 +15,7 @@ tools: ["read", "search"]
 ## 리뷰 방식
 
 1. 대상 파일을 읽고 **프로젝트 인스트럭션(`copilot-instructions.md`)의 패턴과 비교**한다.
-2. 기존 예제(`src/01_single_agent.py` ~ `src/04_concurrent_workflow.py`)와 **일관성**을 확인한다.
+2. 기존 예제(`src/01_single_agent.py` ~ `src/06_rag_agent.py`)와 **일관성**을 확인한다.
 3. 아래 관점에서 검토한다:
    - **패턴 준수**: `FoundryChatClient` + `Agent` + 빌더 패턴, 비동기 구조가 인스트럭션과 일치하는가
    - **보안**: 환경변수 하드코딩, 입력값 미검증, 민감정보 노출이 없는가

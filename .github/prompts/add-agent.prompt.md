@@ -16,7 +16,7 @@ mode: "agent"
 
 ## 현재 시나리오 구조 (`src/`)
 
-1. **단일 에이전트** (`01_single_agent.py`) — `Agent(client, name=..., instructions=...)` + `await agent.run(...)`
+1. **단일 에이전트** (`01_single_agent.py`) — `Agent(client=client, name=..., instructions=...)` + `await agent.run(...)`
 2. **순차(Sequential)** (`02_sequential_workflow.py`) — `SequentialBuilder(participants=[...])`
 3. **GroupChat** (`03_group_chat.py`) — `GroupChatBuilder(participants=..., selection_func=..., max_rounds=...)`
 4. **동시(Concurrent)** (`04_concurrent_workflow.py`) — `ConcurrentBuilder(participants=[...])`로 같은 입력 병렬 검토
@@ -27,7 +27,7 @@ mode: "agent"
   ```python
   client = FoundryChatClient(
       project_endpoint=os.getenv("PROJECT_ENDPOINT"),
-      model=os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-4o"),
+      model=os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-5.4"),
       credential=AzureCliCredential(),
   )
   agent = Agent(client=client, name="...", instructions="...")

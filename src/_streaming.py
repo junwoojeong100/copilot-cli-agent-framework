@@ -42,8 +42,9 @@ async def stream_workflow(workflow, message, *, name_map=None):
     오케스트레이션 종류에 따라 이벤트 형태가 다릅니다.
       - Handoff: 발화자별로 **토큰 단위 갱신**(AgentResponseUpdate)이 흘러옵니다.
         → 토큰을 실시간으로 이어 붙여 출력합니다.
-      - GroupChat: 참여자는 내부에서 실행되고 **완성된 응답**(AgentExecutorResponse)만
-        이벤트로 노출됩니다. → 완성된 발언을 발화 순서대로 블록 출력합니다.
+      - GroupChat / Sequential / Concurrent: 참여자는 내부에서 실행되고 **완성된 응답**
+        (AgentExecutorResponse)만 이벤트로 노출됩니다. → 완성된 발언을 발화 순서대로
+        블록 출력합니다.
     두 경우 모두 내부 오케스트레이터의 중계·종료 메시지는 생략하고, 토큰으로 이미
     출력한 발화자의 완성 이벤트는 중복 출력하지 않습니다.
 
@@ -77,7 +78,7 @@ async def stream_workflow(workflow, message, *, name_map=None):
             streamed.add(speaker)
             continue
 
-        # 2) 완성된 응답 (GroupChat 참여자 등)
+        # 2) 완성된 응답 (Sequential / GroupChat / Concurrent 참여자 등)
         items = data if isinstance(data, list) else [data]
         for item in items:
             if not isinstance(item, AgentExecutorResponse):
