@@ -1,4 +1,5 @@
 ---
+name: debugger
 description: "트러블슈터 에이전트 — 환경 설정, Azure 연결, 런타임 오류를 진단합니다"
 tools: ["read", "search", "execute"]
 ---
@@ -31,7 +32,7 @@ tools: ["read", "search", "execute"]
 - `python src/01_single_agent.py` 실행 시 에러 메시지 분석
 - import 오류 (`agent_framework`, `agent_framework.foundry`, `agent_framework.orchestrations`)
 - 비동기 이벤트 루프 충돌 여부
-- Handoff/GroupChat 빌더 구성 오류 (참여자 누락, handoff 대상 미지정 등)
+- GroupChat/Sequential/Concurrent 빌더 구성 오류 (참여자 누락, max_rounds 미설정 등)
 
 ## 출력 규칙
 
@@ -55,3 +56,7 @@ tools: ["read", "search", "execute"]
 1. ...
 2. ...
 ```
+
+### AGENTS.md
+
+This project has an `AGENTS.md` harness at the repo root. Read it and follow all rules before executing any git or external commands.

@@ -20,6 +20,8 @@ mode: "agent"
 2. **순차(Sequential)** (`02_sequential_workflow.py`) — `SequentialBuilder(participants=[...])` + `stream_workflow(workflow, topic)`
 3. **GroupChat** (`03_group_chat.py`) — `GroupChatBuilder(participants=..., selection_func=..., max_rounds=...)` + `stream_workflow(workflow, topic)`
 4. **동시(Concurrent)** (`04_concurrent_workflow.py`) — `ConcurrentBuilder(participants=[...])` + `stream_workflow(workflow, design)`
+5. **MCP 도구 연동** (`05_mcp_agent.py`) — `MCPStreamableHTTPTool(url=...)` + `Agent(tools=[mcp_tool])` + `stream_agent(agent, prompt)`
+6. **RAG** (`06_rag_agent.py`) — Retriever·Augmenter·Generator 3단계 파이프라인 + `stream_workflow(workflow, query)`
 
 ## 규칙
 
