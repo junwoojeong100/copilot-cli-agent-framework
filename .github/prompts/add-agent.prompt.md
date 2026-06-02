@@ -27,7 +27,7 @@ mode: "agent"
   ```python
   client = FoundryChatClient(
       project_endpoint=os.getenv("PROJECT_ENDPOINT"),
-      model=os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-4o"),
+      model=os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-5.4"),
       credential=AzureCliCredential(),
   )
   agent = Agent(client=client, name="...", instructions="...")

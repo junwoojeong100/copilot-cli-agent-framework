@@ -383,7 +383,7 @@ python src/01_single_agent.py
 | 요소 | 설명 |
 |------|------|
 | `FoundryChatClient` | Azure AI Foundry 프로젝트에 연결하는 채팅 클라이언트 |
-| `Agent(name, instructions)` | 모델 + 역할 지시문의 단위 |
+| `Agent(client, name, instructions)` | 모델 + 역할 지시문의 단위 |
 | `agent.run(..., stream=True)` | 입력을 받아 응답을 토큰 단위로 스트리밍 생성 |
 
 ---

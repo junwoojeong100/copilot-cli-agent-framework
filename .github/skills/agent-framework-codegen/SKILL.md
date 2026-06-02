@@ -47,7 +47,7 @@ from azure.identity import AzureCliCredential
 
 async def main():
     project_endpoint = os.getenv("PROJECT_ENDPOINT")
-    model = os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-4o")
+    model = os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-5.4")
     if not project_endpoint:
         print("오류: PROJECT_ENDPOINT 환경 변수를 설정해주세요.")
         sys.exit(1)
@@ -233,8 +233,8 @@ result = await agent.run(augmented)          # 3) 생성
 ```
 
 - 정확도를 좌우하는 두 축: **(1) 검색 품질**, **(2) "문서 밖은 추측 금지" 지시문**.
-- 실습은 인메모리 키워드 검색. 운영은 `retrieve()`를 Azure AI Search(Foundry IQ)·벡터 검색으로
-  교체한다 (`SEARCH_SERVICE_ENDPOINT`, `KNOWLEDGE_BASE_NAME` 사용).
+- 실습(`src/06_rag_agent.py`)은 **Azure AI Search 하이브리드(BM25 + 벡터) 검색**을 사용한다.
+  환경변수 `SEARCH_SERVICE_ENDPOINT`, `SEARCH_INDEX_NAME`(인덱스 없으면 자동 생성)가 필요하다.
 
 ---
 
