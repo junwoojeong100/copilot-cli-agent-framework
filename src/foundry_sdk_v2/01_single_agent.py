@@ -50,6 +50,7 @@ async def main():
         )
 
         # ── 2단계: Microsoft Agent Framework로 에이전트 실행(스트리밍) ──
+        await factory.enable_tracing()
         question = "Microsoft Agent Framework가 무엇인가요?"
         print(f"질문: {question}\n")
         await stream_agent(agent, question, label="에이전트 응답")
@@ -58,8 +59,9 @@ async def main():
         print(f"에이전트 실행 중 오류 발생: {e}")
         sys.exit(1)
     finally:
-        # ── 3단계: 생성한 서버 측 에이전트 정리 ──
+        # ── 3단계: 생성한 서버 측 에이전트 정리 + 추적 플러시 ──
         factory.cleanup()
+        factory.flush_tracing()
 
     print("\n=== 실행 완료 ===")
 

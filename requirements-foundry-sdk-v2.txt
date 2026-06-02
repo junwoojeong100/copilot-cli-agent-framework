@@ -14,3 +14,6 @@
 # Microsoft Foundry Agent SDK v2 (서버 측 영속 에이전트 생성용)
 azure-ai-projects==2.2.0
 azure-ai-agents==1.1.0
+
+# Azure Monitor(Application Insights) 분산 추적 (트레이싱)
+azure-monitor-opentelemetry==1.8.8

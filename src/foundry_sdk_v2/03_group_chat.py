@@ -84,6 +84,7 @@ async def main():
             return speakers[state.current_round % len(speakers)]
 
         # ── 2단계: Microsoft Agent Framework로 GroupChat 워크플로우 구성·실행 ──
+        await factory.enable_tracing()
         workflow = GroupChatBuilder(
             participants=[planner, developer, designer],
             selection_func=select_next_speaker,
@@ -100,8 +101,9 @@ async def main():
         print(f"GroupChat 실행 중 오류 발생: {e}")
         sys.exit(1)
     finally:
-        # ── 3단계: 생성한 서버 측 에이전트 정리 ──
+        # ── 3단계: 생성한 서버 측 에이전트 정리 + 추적 플러시 ──
         factory.cleanup()
+        factory.flush_tracing()
 
     print("\n=== 실행 완료 ===")
 

@@ -75,6 +75,7 @@ async def main():
         }
 
         # ── 2단계: Microsoft Agent Framework로 동시 워크플로우 구성·실행 ──
+        await factory.enable_tracing()
         workflow = ConcurrentBuilder(
             participants=[security, performance, ux]
         ).build()
@@ -92,8 +93,9 @@ async def main():
         print(f"워크플로우 실행 중 오류 발생: {e}")
         sys.exit(1)
     finally:
-        # ── 3단계: 생성한 서버 측 에이전트 정리 ──
+        # ── 3단계: 생성한 서버 측 에이전트 정리 + 추적 플러시 ──
         factory.cleanup()
+        factory.flush_tracing()
 
     print("\n=== 실행 완료 ===")
 
