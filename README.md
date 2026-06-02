@@ -27,6 +27,7 @@
 - [Part 11. 바이브 코딩 — 설정만으로 코드 생성하기](#part-11-바이브-코딩--설정만으로-코드-생성하기)
 - [Part 12. 가드레일 (AGENTS.md)](#part-12-가드레일-agentsmd)
 - [Part 13. (심화) Foundry Agent SDK v2 + MAF 오케스트레이션](#part-13-심화-foundry-agent-sdk-v2--maf-오케스트레이션)
+- [Part 14. (심화) Hosted Agent 배포 — MAF 에이전트·워크플로우를 관리형으로](#part-14-심화-hosted-agent-배포--maf-에이전트워크플로우를-관리형으로)
 - [부록 A. 트러블슈팅 / 부록 B. 참고 자료](#부록-a-트러블슈팅)
 
 ---
@@ -57,15 +58,22 @@
     ├── 05_mcp_agent.py             # MCP 도구 연동 (외부 시스템 호출)
     ├── 06_rag_agent.py             # RAG (검색 증강 생성)
     ├── _streaming.py               # 스트리밍 출력 공용 헬퍼 (전 예제 공유)
-    └── foundry_sdk_v2/             # (심화) Foundry Agent SDK v2로 생성 + MAF 오케스트레이션
-        ├── _foundry_agents.py      # SDK v2 에이전트 생성·정리·추적 헬퍼 (FoundryAgent 래핑)
-        ├── _rag_search.py          # RAG 검색·증강 로직 (Azure AI Search, 루트 06 미러)
-        ├── 01_single_agent.py      # 단일 에이전트
-        ├── 02_sequential_workflow.py   # 순차 (SequentialBuilder)
-        ├── 03_group_chat.py        # GroupChat (GroupChatBuilder)
-        ├── 04_concurrent_workflow.py   # 동시 (ConcurrentBuilder)
-        ├── 05_mcp_agent.py         # MCP 도구 연동 (서버 측 MCPTool)
-        └── 06_rag_agent.py         # RAG (Azure AI Search 검색 + SDK v2 생성)
+    ├── foundry_sdk_v2/             # (심화) Foundry Agent SDK v2로 생성 + MAF 오케스트레이션
+    │   ├── _foundry_agents.py      # SDK v2 에이전트 생성·정리·추적 헬퍼 (FoundryAgent 래핑)
+    │   ├── _rag_search.py          # RAG 검색·증강 로직 (Azure AI Search, 루트 06 미러)
+    │   ├── 01_single_agent.py      # 단일 에이전트
+    │   ├── 02_sequential_workflow.py   # 순차 (SequentialBuilder)
+    │   ├── 03_group_chat.py        # GroupChat (GroupChatBuilder)
+    │   ├── 04_concurrent_workflow.py   # 동시 (ConcurrentBuilder)
+    │   ├── 05_mcp_agent.py         # MCP 도구 연동 (서버 측 MCPTool)
+    │   └── 06_rag_agent.py         # RAG (Azure AI Search 검색 + SDK v2 생성)
+    └── hosted_agents/              # (심화) MAF 에이전트·워크플로우를 Foundry Hosted Agent로 배포
+        ├── 01_single_agent/        # 단일 에이전트 호스팅 (ResponsesHostServer)
+        ├── 02_sequential_workflow/ # 순차 워크플로우 호스팅 (Workflow.as_agent())
+        ├── 03_group_chat/          # GroupChat 호스팅 (Workflow.as_agent())
+        ├── 04_concurrent_workflow/ # 동시 워크플로우 호스팅 (Workflow.as_agent())
+        ├── 05_mcp_agent/           # MCP 도구 연동 호스팅 (get_mcp_tool)
+        └── 06_rag_agent/           # RAG 호스팅 (하이브리드 검색 함수 도구)
 ```
 
 ---
@@ -894,6 +902,80 @@ invoking"`), Handoff에 바로 넣을 수 없습니다.
 
 ---
 
+## Part 14. (심화) Hosted Agent 배포 — MAF 에이전트·워크플로우를 관리형으로
+
+Part 13이 **에이전트 "생성"을 SDK v2로** 바꾸는 접근이라면, 이 파트는 코드를
+**그대로 둔 채** MAF 에이전트·워크플로우를 **Microsoft Foundry Hosted Agent**
+(관리형 컨테이너)로 **배포**합니다. SDK v2로 재작성하지 않아도 관리형 인프라와
+**자동 trace/monitoring**을 그대로 얻는 것이 핵심입니다.
+
+> 위치: [`src/hosted_agents/`](src/hosted_agents/) · 의존성: `agent-framework-foundry-hosting`
+
+### 핵심 패턴 — `ResponsesHostServer`로 호스팅
+
+```python
+from agent_framework_foundry_hosting import ResponsesHostServer
+
+# 단일 에이전트
+server = ResponsesHostServer(agent)
+server.run()                       # /responses 엔드포인트(:8088), 동기 호출
+
+# 워크플로우 → .as_agent()로 감싸 동일하게 호스팅
+workflow_agent = SequentialBuilder(participants=[...]).build().as_agent()
+server = ResponsesHostServer(workflow_agent)
+server.run()
+```
+
+- 대화 이력은 호스팅 인프라가 관리하므로 각 에이전트에 `default_options={"store": False}`를 지정합니다.
+- 컨테이너에서는 전용 관리 ID로 인증되므로 `DefaultAzureCredential`을 사용합니다.
+
+### 예제 목록
+
+| 폴더 | 원본 | 내용 |
+|------|------|------|
+| [`01_single_agent/`](src/hosted_agents/01_single_agent/) | `src/01_single_agent.py` | 단일 에이전트 호스팅 |
+| [`02_sequential_workflow/`](src/hosted_agents/02_sequential_workflow/) | `src/02_sequential_workflow.py` | 순차 워크플로우(`Workflow.as_agent()`) |
+| [`03_group_chat/`](src/hosted_agents/03_group_chat/) | `src/03_group_chat.py` | GroupChat 워크플로우(`Workflow.as_agent()`) |
+| [`04_concurrent_workflow/`](src/hosted_agents/04_concurrent_workflow/) | `src/04_concurrent_workflow.py` | 동시 워크플로우(`Workflow.as_agent()`) |
+| [`05_mcp_agent/`](src/hosted_agents/05_mcp_agent/) | `src/05_mcp_agent.py` | MCP 도구 연동(서버 측 `get_mcp_tool`) |
+| [`06_rag_agent/`](src/hosted_agents/06_rag_agent/) | `src/06_rag_agent.py` | RAG(하이브리드 검색 함수 도구) |
+
+각 폴더는 독립 배포 가능한 azd 프로젝트로 `main.py`·`Dockerfile`·`agent.yaml`·
+`agent.manifest.yaml` 등을 포함합니다(`agent.manifest.yaml`은 `azd ai agent init`의
+입력, `agent.yaml`은 배포 런타임 스펙).
+
+### 배포 흐름
+
+```bash
+pip install agent-framework agent-framework-foundry-hosting
+azd ext install azure.ai.agents && azd auth login
+
+cd src/hosted_agents/01_single_agent      # 또는 02_sequential_workflow
+azd ai agent init -m ./agent.manifest.yaml   # azd 프로젝트 초기화
+azd ai agent run                             # 로컬 호스트(:8088)
+azd ai agent invoke --local "질문"            # 호출 테스트
+azd provision                                # (필요 시) 리소스 생성
+azd deploy                                   # 컨테이너 빌드 → ACR → Foundry 배포
+```
+
+배포 후 포털 **Assets → 에이전트 → Traces 탭**에서 단계별 모델 호출을 추적하고,
+Application Insights에서 토큰·비용 메트릭을 확인할 수 있습니다(런타임이
+`APPLICATIONINSIGHTS_CONNECTION_STRING`을 자동 주입).
+
+### 기존 실습과의 차이
+
+| 기존 실습(01~06) | Hosted Agent 실습 |
+|------------------|-------------------|
+| 프롬프트 1건 처리 후 종료 | `/responses` HTTP 서버 상시 구동 |
+| `asyncio.run(main())` | `server.run()` (동기) |
+| `AzureCliCredential` | `DefaultAzureCredential` (컨테이너 관리 ID) |
+| 저장소 `.env`(`PROJECT_ENDPOINT`) | Foundry 주입 env(`FOUNDRY_PROJECT_ENDPOINT`) |
+
+> ⚠️ Hosted Agents는 현재 **preview**이며 `linux/amd64` 이미지를 요구합니다.
+> 자세한 단계는 각 폴더의 `README.md`를 참고하세요.
+
+---
+
 ## 부록 A. 트러블슈팅
 
 | 증상 | 해결 |
@@ -911,6 +993,10 @@ invoking"`), Handoff에 바로 넣을 수 없습니다.
 | `/mcp`에 azure 서버가 안 보임 | Node.js 22+ 설치 확인, 첫 실행 시 `npx`가 패키지 다운로드 |
 | azure MCP 도구 401/권한 오류 | `az login` 재실행, 계정 RBAC 권한·구독 확인 |
 | github MCP 인증 실패 | `GITHUB_PERSONAL_ACCESS_TOKEN` 환경변수 설정 여부 확인 |
+| Hosted Agent: `ModuleNotFoundError: agent_framework_foundry_hosting` | `pip install agent-framework-foundry-hosting` (배포 시점 의존성) |
+| Hosted Agent: `azd ai agent` 명령 없음 | `azd ext install azure.ai.agents`, `azd auth login` |
+| Hosted Agent: 배포 후 ARM 이미지 오류 | `linux/amd64` 필요 — `docker build --platform linux/amd64 .` |
+| Hosted Agent: 인증 실패 | 컨테이너는 `DefaultAzureCredential`(관리 ID) 사용, 로컬은 `az login` |
 
 > 더 체계적인 진단은 `copilot --agent debugger`를 사용하세요.
 
