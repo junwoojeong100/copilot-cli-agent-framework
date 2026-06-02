@@ -18,9 +18,9 @@
 - [Part 2. Copilot CLI 시작하기](#part-2-copilot-cli-시작하기)
 - [Part 3. Copilot을 "조종"하는 `.github/` 설정](#part-3-copilot을-조종하는-github-설정)
 - [Part 4. 단일 에이전트](#part-4-단일-에이전트)
-- [Part 5. Handoff 워크플로우](#part-5-handoff-워크플로우)
+- [Part 5. 순차(Sequential) 워크플로우](#part-5-순차sequential-워크플로우)
 - [Part 6. GroupChat 워크플로우](#part-6-groupchat-워크플로우)
-- [Part 7. Custom 순차 워크플로우](#part-7-custom-순차-워크플로우)
+- [Part 7. 동시(Concurrent) 워크플로우](#part-7-동시concurrent-워크플로우)
 - [Part 8. MCP 도구 연동 에이전트](#part-8-mcp-도구-연동-에이전트)
 - [Part 9. RAG — 검색 증강 생성](#part-9-rag--검색-증강-생성)
 - [Part 10. Copilot CLI 멀티 에이전트 패턴으로 개발하기](#part-10-copilot-cli-멀티-에이전트-패턴으로-개발하기)
@@ -51,9 +51,9 @@
 │       └── agent-framework-codegen/SKILL.md   # MAF 코드 생성 패턴
 └── src/                            # Microsoft Agent Framework 예제
     ├── 01_single_agent.py          # 단일 에이전트
-    ├── 02_handoff_workflow.py      # Handoff (전문가 위임)
+    ├── 02_sequential_workflow.py   # 순차 (분석가→작가→편집자)
     ├── 03_group_chat.py            # GroupChat (다중 협업)
-    ├── 04_custom_workflow.py       # Custom 순차 (조건부 라우팅)
+    ├── 04_concurrent_workflow.py   # 동시 (보안·성능·UX 병렬 검토)
     ├── 05_mcp_agent.py             # MCP 도구 연동 (외부 시스템 호출)
     ├── 06_rag_agent.py             # RAG (검색 증강 생성)
     ├── _streaming.py               # 스트리밍 출력 공용 헬퍼 (전 예제 공유)
@@ -84,7 +84,7 @@
                                             ▼  코드 생성/리뷰/실행
         ┌──────────────────────────────────────────────────────────────┐
         │           Microsoft Agent Framework  (Python)                │
-        │   Single → Handoff → GroupChat → Custom → MCP · RAG          │
+        │   Single → Sequential → GroupChat → Concurrent → MCP · RAG   │
         │                          │                                   │
         │                          ▼  FoundryChatClient                │
         │                 Azure AI Foundry (GPT-4o 배포)               │
@@ -95,7 +95,7 @@
 |------|-------------|
 | 2~3 | Copilot CLI 설치 + `.github/` 설정 이해 |
 | 4 | Agent Framework 단일 에이전트 실행 |
-| 5~7 | Handoff / GroupChat / Custom Workflow |
+| 5~7 | Sequential / GroupChat / Concurrent Workflow |
 | 8 | MCP 도구 연동 — 에이전트가 외부 시스템 호출 |
 | 9 | RAG — 검색 증강 생성으로 근거 기반 답변 |
 | 10 | Copilot CLI 멀티 에이전트 패턴(`--agent`)으로 개발 가속 |
@@ -363,8 +363,8 @@ print()
 
 > 💡 **스트리밍 출력**: 모든 예제(01~06)는 답변을 **토큰 단위로 실시간 출력**해 생성 과정을
 > 눈으로 볼 수 있습니다. 공통 로직은 [`src/_streaming.py`](src/_streaming.py)에 모아 두었습니다.
-> - `stream_agent(agent, prompt)` — 단일 에이전트 응답을 토큰 단위로 출력하고 전체 텍스트를 반환(01·04·05·06)
-> - `stream_workflow(workflow, message)` — 워크플로우를 스트리밍 실행해 발화자별로 출력(02 Handoff는 토큰 단위, 03 GroupChat은 발언 단위)
+> - `stream_agent(agent, prompt)` — 단일 에이전트 응답을 토큰 단위로 출력하고 전체 텍스트를 반환(01·05·06)
+> - `stream_workflow(workflow, message)` — 워크플로우를 스트리밍 실행해 발화자별로 출력(02 Sequential·03 GroupChat·04 Concurrent)
 
 실행:
 
@@ -380,43 +380,32 @@ python src/01_single_agent.py
 
 ---
 
-## Part 5. Handoff 워크플로우
+## Part 5. 순차(Sequential) 워크플로우
 
-코드: [`src/02_handoff_workflow.py`](src/02_handoff_workflow.py)
+코드: [`src/02_sequential_workflow.py`](src/02_sequential_workflow.py)
 
-**시나리오**: 접수 담당이 요청을 분석해 *기술 지원* 또는 *결제 지원* 전문가에게 위임.
+**시나리오**: 분석가 → 작가 → 편집자가 차례로 콘텐츠를 다듬는 제작 파이프라인.
 
 ```python
-from agent_framework.orchestrations import HandoffBuilder
+from agent_framework.orchestrations import SequentialBuilder
 
-workflow = (
-    HandoffBuilder(name="고객_지원",
-                   participants=[triage_agent, tech_support_agent, billing_agent])
-    .with_start_agent(triage_agent)                                  # 시작 에이전트
-    .add_handoff(triage_agent, [tech_support_agent, billing_agent])  # 위임 대상 명시
-    .build()
-)
-result = await workflow.run("결제 오류가 발생했습니다. 카드 결제가 계속 실패해요.")
-for output in result.get_outputs():   # run()은 이벤트 목록 → 최종 응답만 추출
+workflow = SequentialBuilder(
+    participants=[analyzer_agent, writer_agent, editor_agent]  # 실행 순서대로 전달
+).build()
+result = await workflow.run("Kubernetes 클러스터 비용 최적화 전략")
+for output in result.get_outputs():
     print(output)
 ```
 
 **핵심**:
-- `add_handoff(from, [to...])`로 위임 대상을 명시해야 LLM에 `handoff_to_*` 도구가 노출됩니다.
-- **모든 참여 Agent**는 `require_per_service_call_history_persistence=True`로 생성해야 합니다(위임 간
-  대화 맥락 유지 — Handoff `build()`의 **필수 요구사항**이며, 누락 시 `ValueError` 발생).
-- Agent `name`은 `handoff_to_<name>` **도구 이름**이 되므로 **ASCII(영문/숫자/`_`)만** 사용합니다
-  (한글·공백은 Foundry/OpenAI 도구명 규칙 `^[a-zA-Z0-9_.-]+$` 위반 → `400` 오류). 한글 페르소나는
-  `instructions`로 부여하세요.
-- **`with_autonomous_mode()`는 사용하지 않습니다.** 기본(비-autonomous) 모드에서는 *접수 담당 →
-  handoff → 전문가가 1회 응답* 후 제어가 사용자에게 돌아오며 워크플로우가 종료됩니다. autonomous
-  모드를 켜면 위임받을 곳이 없는 종단(terminal) 전문가가 사용자 입력 없이 turn limit까지 같은 답변을
-  반복합니다.
-- 빌드 시 출력되는 `No handoff configuration found for agent ...` 경고는 전문가가 더 이상 위임할 곳이
-  없는 **종단 에이전트**임을 알리는 **정보성 메시지**로, 이 데모에서는 정상 동작입니다(응답 후 제어 반환).
+- `SequentialBuilder`가 참여자 순서대로 **앞 단계의 출력을 다음 단계 입력으로 전달**합니다.
+- 각 에이전트는 네이티브 MAF `Agent`이며, 역할은 `instructions`로 부여합니다.
+- 참여자 `name`은 도구명이 아니므로 한국어(예: `분석가`)를 그대로 써도 됩니다.
+- 더 복잡한 분기·조건부 라우팅이 필요하면 `WorkflowBuilder` + `Case`/`Default`로
+  선언적 그래프를 구성할 수 있습니다(상세는 `agent-framework-codegen` 스킬 참조).
 
 ```bash
-python src/02_handoff_workflow.py
+python src/02_sequential_workflow.py
 ```
 
 ---
@@ -442,18 +431,17 @@ workflow = GroupChatBuilder(
 result = await workflow.run("모바일 앱 신규 기능: AI 기반 개인화 추천 시스템 도입")
 ```
 
-> 참고: GroupChat은 참여자 `name`이 도구명이 아니므로 한국어도 됩니다(Handoff와 다른 점).
-> 최종 토론 내용은 `result.get_outputs()`(종료 메시지)가 아니라 이벤트의 `AgentExecutorResponse`에서
-> 추출합니다 — `src/03_group_chat.py`의 `print_transcript()` 참고.
+> 참고: 최종 토론 내용은 `result.get_outputs()`(종료 메시지)가 아니라 이벤트의
+> `AgentExecutorResponse`에서 추출합니다 — `src/03_group_chat.py`의 스트리밍 출력 참고.
 
-**Handoff vs GroupChat**
+**Sequential vs GroupChat**
 
-| | Handoff | GroupChat |
-|---|---------|-----------|
-| 구조 | 한 에이전트 → 다른 에이전트로 **제어 위임** | 여러 에이전트가 **한 대화에 공동 참여** |
-| 발화자 결정 | LLM이 handoff 도구 호출 | `selection_func`(예: 라운드 로빈) |
-| 종료 조건 | 작업 완료 | `max_rounds` |
-| 적합 | 의도별 라우팅 | 브레인스토밍·다관점 검토 |
+| | Sequential | GroupChat |
+|---|------------|-----------|
+| 구조 | 에이전트를 **순서대로 연결**(앞 출력 → 다음 입력) | 여러 에이전트가 **한 대화에 공동 참여** |
+| 발화자 결정 | 고정된 참여자 순서 | `selection_func`(예: 라운드 로빈) |
+| 종료 조건 | 마지막 단계 완료 | `max_rounds` |
+| 적합 | 단계별 파이프라인 | 브레인스토밍·다관점 검토 |
 
 ```bash
 python src/03_group_chat.py
@@ -461,30 +449,34 @@ python src/03_group_chat.py
 
 ---
 
-## Part 7. Custom 순차 워크플로우
+## Part 7. 동시(Concurrent) 워크플로우
 
-코드: [`src/04_custom_workflow.py`](src/04_custom_workflow.py)
+코드: [`src/04_concurrent_workflow.py`](src/04_concurrent_workflow.py)
 
-**시나리오**: 주제 분석 → 기술/일반 분기 → 작가 초안 → 편집자 다듬기.
+**시나리오**: 보안·성능·UX 리뷰어가 하나의 설계안을 각자 관점에서 **병렬** 검토.
 
 ```python
-analysis = await agents["topic_analyzer"].run(input_topic)              # 1) 분석
-route = route_by_category(str(analysis))                                # 2) 조건부 라우팅
-draft = await agents[route].run(f"...{analysis}...'{input_topic}'...")  # 3) 초안
-final = await agents["editor"].run(f"...{draft}...")                    # 4) 편집
-print(final)
+from agent_framework.orchestrations import ConcurrentBuilder
+
+workflow = ConcurrentBuilder(
+    participants=[security_agent, performance_agent, ux_agent]  # 같은 입력을 동시에 전달
+).build()
+result = await workflow.run("게스트 결제 + 단말 캐시 설계안을 검토해 주세요.")
+for output in result.get_outputs():
+    print(output)
 ```
 
-이 패턴은 SDK 빌더 없이 **일반 Python 제어 흐름**으로 에이전트를 순차 연결합니다.
-더 복잡한 그래프가 필요하면 `WorkflowBuilder` + `Case`/`Default`로 선언적 분기를 구성할 수 있습니다
-(상세는 `agent-framework-codegen` 스킬 참조).
+**핵심**:
+- `ConcurrentBuilder`가 **모든 참여자에게 같은 입력을 병렬로 전달**하고 결과를 모읍니다.
+- 순차 파이프라인과 달리 참여자 간 의존이 없어 **독립적 다관점 평가**에 적합합니다.
+- 각 리뷰어의 응답은 도착 순서대로 스트리밍되며, 발화자 라벨로 구분됩니다.
 
 ```bash
-python src/04_custom_workflow.py
+python src/04_concurrent_workflow.py
 ```
 
-> ✅ **체크포인트**: Single → Handoff → GroupChat → Custom 4가지 패턴의 차이와 선택 기준을
-> 설명할 수 있으면 Agent Framework 핵심을 익힌 것입니다.
+> ✅ **체크포인트**: Single → Sequential → GroupChat → Concurrent 4가지 패턴의 차이와
+> 선택 기준을 설명할 수 있으면 Agent Framework 핵심을 익힌 것입니다.
 
 ---
 
@@ -704,8 +696,8 @@ copilot
 > 좁히거나, 읽기 권한만 가진 계정으로 `az login` 하세요.
 
 > **실습**: `copilot --agent orchestrator --yolo`를 띄우고
-> *"Microsoft Learn에서 Agent Framework Handoff 문서를 찾아 고객지원 워크플로우에 환불 전문
-> 에이전트를 추가하고 리뷰해줘"* 라고 요청해 보세요. (Learn 문서 검색 + 코드 생성 + 리뷰 연계)
+> *"Microsoft Learn에서 Agent Framework Concurrent 오케스트레이션 문서를 찾아 동시 워크플로우에
+> 비용 리뷰 전문 에이전트를 추가하고 리뷰해줘"* 라고 요청해 보세요. (Learn 문서 검색 + 코드 생성 + 리뷰 연계)
 
 ---
 
@@ -724,11 +716,11 @@ copilot
 ### 실습 흐름
 
 ```text
-1. (CLI) "환불 전문 에이전트를 Handoff 워크플로우에 추가해줘"라고 자연어로 요청
+1. (CLI) "UX 리뷰 전문 에이전트를 동시 워크플로우에 추가해줘"라고 자연어로 요청
    (VS Code Copilot Chat이라면 /add-agent 프롬프트로 호출)
 2. Copilot이 agent-framework-codegen 스킬 규칙(import·async·instructions)에 맞춰 코드 생성
 3. copilot --agent reviewer 로 리뷰 → 수정
-4. python src/02_handoff_workflow.py 로 실행 검증
+4. python src/04_concurrent_workflow.py 로 실행 검증
 ```
 
 > ✅ **최종 체크포인트**: 직접 만든 `.github/` 설정만으로 Copilot이 새 에이전트/기능을 추가하게
@@ -896,8 +888,9 @@ invoking"`), Handoff에 바로 넣을 수 없습니다.
 | `ConcurrentBuilder` | ✅ |
 | `HandoffBuilder` | ❌ (네이티브 MAF `Agent` 필요) |
 
-> Handoff 패턴은 기존 [`src/02_handoff_workflow.py`](src/02_handoff_workflow.py)(MAF
-> `FoundryChatClient` 기반)를 참고하세요.
+> Handoff 패턴 자체를 학습하려면 `agent-framework-codegen` 스킬의 Handoff 섹션
+> ([`.github/skills/agent-framework-codegen/SKILL.md`](.github/skills/agent-framework-codegen/SKILL.md))을
+> 참고하세요. 이 패턴은 네이티브 MAF `Agent`(`FoundryChatClient` 기반)로 구성합니다.
 
 ---
 
@@ -909,12 +902,8 @@ invoking"`), Handoff에 바로 넣을 수 없습니다.
 | 인증 실패 (`AzureCliCredential`) | `az login` 재실행, `az account set`으로 구독 선택 |
 | `az`에 Foundry 명령 없음 | `az upgrade --yes`로 2.81.0+ 업그레이드 |
 | `ImportError: agent_framework...` | `pip install -U agent-framework`, 가상환경 활성화 확인 |
-| `handoff_to_*` 도구가 안 보임 | `add_handoff(from, [to...])` 호출 누락 |
 | SDK v2 `FoundryAgent`를 Handoff에 못 넣음 | 구조적 제약(Part 13 참조) — Handoff는 네이티브 MAF `Agent` 필요. Sequential/GroupChat/Concurrent 사용 |
-| Handoff `400 Invalid 'tools[0].name'` | Agent `name`에 한글/공백 사용 — handoff 도구명은 ASCII만 허용. `name`을 영문으로 변경(페르소나는 instructions) |
-| Handoff `build()` `ValueError`(persistence) | 일부 Agent에 `require_per_service_call_history_persistence=True` 누락 — 모든 참여 Agent에 지정 |
-| Workflow 출력이 `WorkflowEvent(...)` 객체로 보임 | `print(result)` 대신 `result.get_outputs()`(Handoff) / 이벤트의 `AgentExecutorResponse`(GroupChat)로 추출 |
-| Handoff `build()`가 `ValueError`(persistence) | 참여 Agent 중 일부에 `require_per_service_call_history_persistence=True` 누락 — 모든 Agent에 지정 |
+| Workflow 출력이 `WorkflowEvent(...)` 객체로 보임 | `print(result)` 대신 `result.get_outputs()`(Sequential/Concurrent) / 이벤트의 `AgentExecutorResponse`(GroupChat)로 추출 |
 | MCP 도구를 호출 안 함 | `tools=` 전달 누락, `async with mcp_tool:` 밖에서 실행, 서버 URL 확인 |
 | RAG가 문서 밖 내용을 지어냄 | 검색 결과 빈약 또는 "추측 금지" 지시문 누락 |
 | GroupChat이 끝나지 않음 | `max_rounds` 미설정 |

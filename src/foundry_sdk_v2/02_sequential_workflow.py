@@ -9,8 +9,9 @@
   - 작가: 분석을 바탕으로 글 초안을 작성합니다.
   - 편집자: 초안을 다듬어 최종본을 만듭니다.
 
-기존 ``src/04_custom_workflow.py``는 await로 단계를 수동 연결하지만, 이 예제는
-MAF의 SequentialBuilder가 단계 전달을 대신 처리합니다.
+루트의 [`src/02_sequential_workflow.py`](../02_sequential_workflow.py)도 같은 순차
+패턴이지만, 그쪽은 에이전트를 MAF ``FoundryChatClient``로 만든다는 점이 다릅니다.
+이 예제는 동일한 워크플로우를 **SDK v2로 생성한 서버 측 에이전트**로 구성합니다.
 """
 
 import asyncio
