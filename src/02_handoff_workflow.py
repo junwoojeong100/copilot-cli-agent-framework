@@ -18,6 +18,8 @@ from agent_framework.orchestrations import HandoffBuilder
 from agent_framework.foundry import FoundryChatClient
 from azure.identity import AzureCliCredential
 
+from _streaming import stream_workflow
+
 
 async def main():
     """Handoff 워크플로우를 구성하고 실행하는 메인 함수"""
@@ -113,14 +115,14 @@ async def main():
     print("-" * 50)
 
     try:
-        result = await workflow.run(user_query)
-
-        # ── 5단계: 결과 출력 ──
-        # run()은 WorkflowRunResult(이벤트 목록)를 반환합니다.
-        # get_outputs()로 최종 산출물(에이전트 응답)만 추출해 출력합니다.
-        print("\n[최종 응답]")
-        for output in result.get_outputs():
-            print(output)
+        # ── 5단계: 워크플로우 스트리밍 실행 ──
+        # stream=True로 발화자(접수→전문가)별 응답을 토큰 단위로 실시간 출력합니다.
+        name_map = {
+            "triage": "접수 담당",
+            "tech_support": "기술 지원",
+            "billing": "결제 지원",
+        }
+        await stream_workflow(workflow, user_query, name_map=name_map)
 
     except Exception as e:
         print(f"워크플로우 실행 중 오류 발생: {e}")

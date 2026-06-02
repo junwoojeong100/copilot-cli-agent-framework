@@ -13,29 +13,12 @@ from dotenv import load_dotenv
 # 프로젝트 루트의 .env 파일 로드
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
-from agent_framework import Agent, AgentExecutorResponse
+from agent_framework import Agent
 from agent_framework.orchestrations import GroupChatBuilder, GroupChatState
 from agent_framework.foundry import FoundryChatClient
 from azure.identity import AzureCliCredential
 
-
-def print_transcript(result) -> None:
-    """GroupChat 실행 결과(이벤트 목록)에서 각 참여자의 발언을 순서대로 출력합니다.
-
-    GroupChat의 최종 산출물(get_outputs)은 오케스트레이터의 종료 메시지뿐이라,
-    실제 토론 내용은 이벤트 스트림의 AgentExecutorResponse에서 추출합니다.
-    """
-    last = None
-    for event in result:
-        data = getattr(event, "data", None)
-        items = data if isinstance(data, list) else [data]
-        for item in items:
-            if isinstance(item, AgentExecutorResponse):
-                speaker = getattr(item, "executor_id", "?")
-                text = str(item.agent_response).strip()
-                if (speaker, text) != last:  # 연속 중복 이벤트 제거
-                    last = (speaker, text)
-                    print(f"\n[{speaker}]\n{text}")
+from _streaming import stream_workflow
 
 
 def select_next_speaker(state: GroupChatState) -> str:
@@ -130,12 +113,10 @@ async def main():
     print("=" * 50)
 
     try:
-        result = await workflow.run(topic)
-
-        # ── 5단계: 토론 결과 출력 ──
-        # 이벤트 스트림에서 각 참여자의 발언을 순서대로 추출해 출력합니다.
+        # ── 5단계: 토론 결과 스트리밍 출력 ──
+        # stream=True로 각 참여자의 발언을 발화 순서대로 토큰 단위 실시간 출력합니다.
         print("\n[GroupChat 토론 결과]")
-        print_transcript(result)
+        await stream_workflow(workflow, topic)
 
     except Exception as e:
         print(f"GroupChat 실행 중 오류 발생: {e}")

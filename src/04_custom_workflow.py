@@ -21,6 +21,8 @@ from agent_framework import Agent
 from agent_framework.foundry import FoundryChatClient
 from azure.identity import AzureCliCredential
 
+from _streaming import stream_agent
+
 
 def create_agents(client: FoundryChatClient) -> dict:
     """파이프라인에 필요한 에이전트들을 생성합니다.
@@ -134,14 +136,16 @@ async def main():
     print("=" * 50)
 
     try:
-        # 3-1. 주제 분석
+        # 3-1. 주제 분석 (스트리밍)
         print("\n[1단계] 주제 분석 중...")
-        analysis = await agents["topic_analyzer"].run(input_topic)
-        route = route_by_category(str(analysis))
+        analysis = await stream_agent(
+            agents["topic_analyzer"], input_topic, label="  분석"
+        )
+        route = route_by_category(analysis)
         category_label = "기술" if route == "tech_writer" else "일반"
         print(f"  → 분석 결과: {category_label} 주제")
 
-        # 3-2. 조건부 라우팅: 카테고리에 따라 적절한 작가 선택
+        # 3-2. 조건부 라우팅: 카테고리에 따라 적절한 작가 선택 (스트리밍)
         writer_name = "기술 작가" if route == "tech_writer" else "일반 작가"
         print(f"\n[2단계] {writer_name}가 초안 작성 중...")
         writer_prompt = (
@@ -149,22 +153,15 @@ async def main():
             f"--- 주제 분석 ---\n{analysis}\n\n"
             f"--- 요청 ---\n'{input_topic}' 주제로 500자 이내의 글을 작성하세요."
         )
-        draft = await agents[route].run(writer_prompt)
-        print("  → 초안 작성 완료")
+        draft = await stream_agent(agents[route], writer_prompt, label="  초안")
 
-        # 3-3. 편집자 검토
+        # 3-3. 편집자 검토 (스트리밍)
         print("\n[3단계] 편집자가 검토 및 개선 중...")
         editor_prompt = (
             f"다음 초안을 검토하고 개선된 최종 버전을 작성하세요:\n\n"
             f"--- 초안 ---\n{draft}"
         )
-        final_content = await agents["editor"].run(editor_prompt)
-        print("  → 최종 편집 완료")
-
-        # ── 4단계: 최종 결과 출력 ──
-        print("\n" + "=" * 50)
-        print("\n=== 최종 콘텐츠 ===\n")
-        print(final_content)
+        await stream_agent(agents["editor"], editor_prompt, label="\n=== 최종 콘텐츠 ===\n")
 
     except Exception as e:
         print(f"워크플로우 실행 중 오류 발생: {e}")

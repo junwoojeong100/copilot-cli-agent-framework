@@ -45,6 +45,8 @@ from azure.search.documents.indexes.models import (
 from azure.search.documents.models import VectorizedQuery
 from openai import AzureOpenAI
 
+from _streaming import stream_agent
+
 
 # ── 지식 베이스 ──
 # 실제로는 사내 위키, 제품 매뉴얼, FAQ 등을 청크로 나눠 저장합니다.
@@ -324,10 +326,7 @@ async def main():
         )
 
         print("\n[5단계] 에이전트가 답변 생성 중...")
-        result = await agent.run(augmented_prompt)
-
-        print("\n에이전트 응답:")
-        print(result)
+        await stream_agent(agent, augmented_prompt, label="\n에이전트 응답")
 
     except Exception as e:
         print(f"RAG 실행 중 오류 발생: {e}")

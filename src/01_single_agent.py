@@ -17,6 +17,8 @@ from agent_framework import Agent
 from agent_framework.foundry import FoundryChatClient
 from azure.identity import AzureCliCredential
 
+from _streaming import stream_agent
+
 
 async def main():
     """단일 에이전트를 생성하고 실행하는 메인 함수"""
@@ -57,11 +59,9 @@ async def main():
     print(f"질문: {question}\n")
 
     try:
-        result = await agent.run(question)
-
-        # ── 4단계: 결과 출력 ──
-        print("에이전트 응답:")
-        print(result)
+        # ── 4단계: 결과 출력 (스트리밍) ──
+        # stream=True로 응답을 토큰 단위로 받아 생성 과정을 실시간 출력합니다.
+        await stream_agent(agent, question, label="에이전트 응답")
 
     except Exception as e:
         print(f"에이전트 실행 중 오류 발생: {e}")
