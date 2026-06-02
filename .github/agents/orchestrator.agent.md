@@ -41,8 +41,9 @@ appropriate collaboration pattern, and then drives that pattern's workflow to co
 - Keywords: generate, write, review, evaluate, improve, draft, 초안
 
 ### → Code Generation
-- "설계하고 구현해줘", "코드 작성하고 리뷰해줘", "API 만들고 리뷰해줘"
-- Keywords: 설계, design, architect, code review, 코드 생성, implement and review
+- "코드 설계해줘", "설계하고 구현해줘", "코드 작성하고 리뷰해줘", "API 만들고 리뷰해줘", "코드 짜줘"
+- End-to-end code creation: design → implement → review
+- Keywords: 설계, design, architect, code review, 코드 생성, implement and review, 구현하고 리뷰, build and review
 
 ### → Ambiguous
 If the intent is unclear, ask the user:
