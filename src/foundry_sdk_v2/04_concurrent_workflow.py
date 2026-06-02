@@ -5,8 +5,9 @@
 여러 전문가가 같은 입력을 동시에 검토하게 합니다.
 보안, 성능, UX 리뷰어가 하나의 설계안을 각자 관점에서 병렬 평가합니다.
 
-기존 ``src/`` 예제에는 동시 실행 패턴이 없습니다. 이 예제는 SDK v2로 만든
-에이전트가 Handoff를 제외한 MAF 오케스트레이션 전반과 호환됨을 보여 줍니다.
+루트의 [`src/04_concurrent_workflow.py`](../04_concurrent_workflow.py)도 같은 동시
+패턴이지만, 그쪽은 에이전트를 MAF ``FoundryChatClient``로 만듭니다. 이 예제는 SDK v2로
+만든 에이전트가 Handoff를 제외한 MAF 오케스트레이션 전반과 호환됨을 보여 줍니다.
 """
 
 import asyncio

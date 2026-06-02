@@ -12,14 +12,14 @@ mode: "agent"
 - 파일명: {{file_name}}  (예: 05_my_workflow.py)
 - 에이전트/워크플로우명: {{agent_name}}
 - 역할: {{role_description}}
-- 패턴: 단일 에이전트 / Handoff / GroupChat / Custom 순차
+- 패턴: 단일 에이전트 / 순차(Sequential) / GroupChat / 동시(Concurrent)
 
 ## 현재 시나리오 구조 (`src/`)
 
 1. **단일 에이전트** (`01_single_agent.py`) — `Agent(client, name=..., instructions=...)` + `await agent.run(...)`
-2. **Handoff** (`02_handoff_workflow.py`) — `HandoffBuilder` + `add_handoff(from, [to...])`
+2. **순차(Sequential)** (`02_sequential_workflow.py`) — `SequentialBuilder(participants=[...])`
 3. **GroupChat** (`03_group_chat.py`) — `GroupChatBuilder(participants=..., selection_func=..., max_rounds=...)`
-4. **Custom 순차** (`04_custom_workflow.py`) — 일반 Python 제어 흐름으로 에이전트 순차 연결 + 조건부 라우팅
+4. **동시(Concurrent)** (`04_concurrent_workflow.py`) — `ConcurrentBuilder(participants=[...])`로 같은 입력 병렬 검토
 
 ## 규칙
 
