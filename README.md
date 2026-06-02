@@ -161,7 +161,11 @@ az cognitiveservices account deployment create \
   --sku-name Standard --sku-capacity 10
 
 # 5) Azure AI Search 서비스 생성 (실습 9 RAG 전용)
-az search service create -n $SEARCH -g $RG -l $LOCATION --sku basic
+#    --auth-options aadOrApiKey: 키리스(Entra ID) 데이터플레인 접근을 켭니다.
+#    (기본값은 API 키 전용이라, 생략하면 RAG 실행 시 'Forbidden' 오류가 납니다.)
+#    리전이 용량 부족(InsufficientResourcesAvailable)이면 다른 리전을 사용하세요.
+az search service create -n $SEARCH -g $RG -l $LOCATION --sku basic \
+  --auth-options aadOrApiKey
 
 # 6) 권한(RBAC) — 본인 계정에 데이터플레인 역할 부여 (키리스 인증)
 ME=$(az ad signed-in-user show --query id -o tsv)
@@ -178,6 +182,12 @@ az role assignment create --assignee $ME --role "Search Index Data Reader"      
 
 > **RAG 인덱스 생성**: 별도 명령이 필요 없습니다. 실습 9의 `06_rag_agent.py`가 **첫 실행 시
 > 인덱스를 자동 생성**하고 문서를 임베딩·업로드합니다(멱등). 위에서 만든 **Search 서비스**만 있으면 됩니다.
+
+> **이미 만든 Search 서비스에서 'Forbidden'이 난다면** 키리스(Entra ID) 인증이 꺼져 있는
+> 경우입니다. 다음으로 활성화하세요.
+> ```bash
+> az search service update -n $SEARCH -g $RG --auth-options aadOrApiKey
+> ```
 
 `.env`에 채울 엔드포인트 값은 다음으로 확인합니다.
 
