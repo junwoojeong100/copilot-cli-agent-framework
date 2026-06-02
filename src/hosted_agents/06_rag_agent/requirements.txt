@@ -1,0 +1,10 @@
+# Foundry Hosted Agent 런타임 의존성
+agent-framework>=1.7.0
+agent-framework-foundry-hosting
+
+# RAG — Azure AI Search 하이브리드 검색 + Azure OpenAI 임베딩
+azure-search-documents>=11.7.0b2
+openai>=2.38.0
+
+# 로컬 .env 로딩용
+python-dotenv>=1.2.2
