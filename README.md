@@ -894,25 +894,6 @@ az resource create \
   (`traces`, `dependencies`)에서 확인합니다. 스팬은 도착까지 **1~2분** 지연될 수
   있습니다. Foundry 포털의 *Tracing* 탭에서도 볼 수 있습니다.
 
-### ⚠️ Handoff는 제외 — 이유
-
-이 세트에는 **Handoff 예제가 없습니다.** MAF `HandoffBuilder`는 참여자에게
-`handoff_to_*` 도구를 **로컬에서 주입·호출**하고 클로닝·미들웨어를 적용하기 위해
-네이티브 MAF `Agent`를 요구합니다. SDK v2로 만든 **서버 측 영속 에이전트**는 이
-로컬 함수 호출 주입 방식과 맞지 않아(`"chat client does not support function
-invoking"`), Handoff에 바로 넣을 수 없습니다.
-
-| MAF 오케스트레이션 | SDK v2 `FoundryAgent` 호환 |
-|--------------------|:--------------------------:|
-| `SequentialBuilder` | ✅ |
-| `GroupChatBuilder` | ✅ |
-| `ConcurrentBuilder` | ✅ |
-| `HandoffBuilder` | ❌ (네이티브 MAF `Agent` 필요) |
-
-> Handoff 패턴 자체를 학습하려면 `agent-framework-codegen` 스킬의 Handoff 섹션
-> ([`.github/skills/agent-framework-codegen/SKILL.md`](.github/skills/agent-framework-codegen/SKILL.md))을
-> 참고하세요. 이 패턴은 네이티브 MAF `Agent`(`FoundryChatClient` 기반)로 구성합니다.
-
 ---
 
 ## Part 14. (심화) Hosted Agent 배포 — MAF 에이전트·워크플로우를 관리형으로
@@ -1004,7 +985,6 @@ Application Insights에서 토큰·비용 메트릭을 확인할 수 있습니�
 | 인증 실패 (`AzureCliCredential`) | `az login` 재실행, `az account set`으로 구독 선택 |
 | `az`에 Foundry 명령 없음 | `az upgrade --yes`로 2.81.0+ 업그레이드 |
 | `ImportError: agent_framework...` | `pip install -U agent-framework`, 가상환경 활성화 확인 |
-| SDK v2 `FoundryAgent`를 Handoff에 못 넣음 | 구조적 제약(Part 13 참조) — Handoff는 네이티브 MAF `Agent` 필요. Sequential/GroupChat/Concurrent 사용 |
 | Workflow 출력이 `WorkflowEvent(...)` 객체로 보임 | `print(result)` 대신 `result.get_outputs()`(Sequential/Concurrent) / 이벤트의 `AgentExecutorResponse`(GroupChat)로 추출 |
 | MCP 도구를 호출 안 함 | `tools=` 전달 누락, `async with mcp_tool:` 밖에서 실행, 서버 URL 확인 |
 | RAG가 문서 밖 내용을 지어냄 | 검색 결과 빈약 또는 "추측 금지" 지시문 누락 |
