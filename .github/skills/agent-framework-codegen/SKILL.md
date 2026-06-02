@@ -79,11 +79,19 @@ agent = Agent(
     name="기술_어시스턴트",
     instructions="당신은 ... 한국어로 답변합니다.",   # 역할 지시문 (한국어)
 )
+
+# 방법 A: 이 repo의 표준 패턴 — 스트리밍 헬퍼 사용 (응답이 토큰 단위로 실시간 출력)
+from _streaming import stream_agent
+await stream_agent(agent, "질문 내용", label="에이전트 응답")
+
+# 방법 B: 단순 API 예시 — 완성된 응답을 한 번에 받음
 result = await agent.run("질문 내용")
 print(result)
 ```
 
 - 역할·도메인·말투는 `instructions`로 부여한다.
+- **이 프로젝트 표준**: `src/_streaming.py`의 `stream_agent()` 헬퍼를 사용한다
+  (비스트리밍 `print(result)` 직접 출력은 교육 예시용으로만 허용).
 - 단일 에이전트의 `name`은 한국어도 가능하다. **단, Handoff에서는 `name`이 `handoff_to_<name>`
   도구명이 되므로 ASCII(영문/숫자/`_`)만 사용**한다 (Foundry/OpenAI 도구명 규칙 `^[a-zA-Z0-9_.-]+$`).
 

@@ -248,6 +248,9 @@ SEARCH_INDEX_NAME=maf-lab-knowledge-v1
 AZURE_OPENAI_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
 EMBEDDING_DEPLOYMENT_NAME=text-embedding-3-large
 AZURE_OPENAI_API_VERSION=2024-10-21
+
+# (심화) Foundry Agent SDK v2 — Application Insights 추적 (기본값: true, Part 13 참조)
+# ENABLE_TRACING=true
 ```
 
 ---
@@ -364,8 +367,11 @@ agent = Agent(
 )
 
 # 스트리밍: stream=True로 응답을 토큰 단위로 받아 생성 과정을 실시간 출력합니다.
+# update.text가 None인 청크는 건너뜁니다 (도구 호출·메타 이벤트 등).
 async for update in agent.run("Microsoft Agent Framework가 무엇인가요?", stream=True):
-    print(update.text, end="", flush=True)
+    text = getattr(update, "text", "") or ""
+    if text:
+        print(text, end="", flush=True)
 print()
 ```
 
@@ -404,6 +410,10 @@ result = await workflow.run("Kubernetes 클러스터 비용 최적화 전략")
 for output in result.get_outputs():
     print(output)
 ```
+
+> 실제 저장소 예제(`src/02_sequential_workflow.py`)는 각 단계 출력을 실시간으로 보여주기 위해
+> `stream_workflow(workflow, topic)`(공통 헬퍼)를 사용합니다. `result.get_outputs()`는
+> 최종 결과를 한 번에 받는 방법입니다.
 
 **핵심**:
 - `SequentialBuilder`가 참여자 순서대로 **앞 단계의 출력을 다음 단계 입력으로 전달**합니다.
@@ -473,6 +483,9 @@ result = await workflow.run("게스트 결제 + 단말 캐시 설계안을 검�
 for output in result.get_outputs():
     print(output)
 ```
+
+> 실제 저장소 예제(`src/04_concurrent_workflow.py`)는 각 리뷰어 응답을 도착 순서대로 실시간
+> 출력하기 위해 `stream_workflow(workflow, design)`을 사용합니다.
 
 **핵심**:
 - `ConcurrentBuilder`가 **모든 참여자에게 같은 입력을 병렬로 전달**하고 결과를 모읍니다.
@@ -958,10 +971,10 @@ mkdir -p ~/deploy/single-agent && cd ~/deploy/single-agent
 azd ai agent init -m "$MANIFEST"             # azd 프로젝트 초기화
 
 cd maf-lab-single-agent
-azd ai agent run                             # 로컬 호스트(:8088)
-azd ai agent invoke --local "질문"            # 로컬 호출 테스트
+azd ai agent run                             # 로컬 호스트(:8088) — 블로킹; 아래는 다른 터미널에서 실행
+azd ai agent invoke --local "질문"            # 로컬 호출 테스트 (별도 터미널)
 azd provision --no-prompt                    # (필요 시) 리소스 생성
-azd deploy --no-prompt                       # 컨테이너 빌드 → ACR → Foundry 배포
+azd deploy --no-prompt                       # 코드(ZIP) 빌드 → Foundry 배포 (Docker·ACR 불필요)
 ```
 
 배포 후 포털 **Assets → 에이전트 → Traces 탭**에서 단계별 모델 호출을 추적하고,
@@ -977,7 +990,8 @@ Application Insights에서 토큰·비용 메트릭을 확인할 수 있습니�
 | `AzureCliCredential` | `DefaultAzureCredential` (컨테이너 관리 ID) |
 | 저장소 `.env`(`PROJECT_ENDPOINT`) | Foundry 주입 env(`FOUNDRY_PROJECT_ENDPOINT`) |
 
-> ⚠️ Hosted Agents는 현재 **preview**이며 `linux/amd64` 이미지를 요구합니다.
+> ⚠️ Hosted Agents는 현재 **preview**입니다. 코드(ZIP) 배포 모드(권장)는 Docker가 불필요합니다.
+> 컨테이너 모드를 사용하는 경우 `linux/amd64` 이미지가 필요합니다(`--platform linux/amd64`).
 > 자세한 단계는 각 폴더의 `README.md`를 참고하세요.
 
 ---
