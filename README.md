@@ -53,7 +53,8 @@
     ├── 03_group_chat.py            # GroupChat (다중 협업)
     ├── 04_custom_workflow.py       # Custom 순차 (조건부 라우팅)
     ├── 05_mcp_agent.py             # MCP 도구 연동 (외부 시스템 호출)
-    └── 06_rag_agent.py             # RAG (검색 증강 생성)
+    ├── 06_rag_agent.py             # RAG (검색 증강 생성)
+    └── _streaming.py               # 스트리밍 출력 공용 헬퍼 (전 예제 공유)
 ```
 
 ---
@@ -340,9 +341,17 @@ agent = Agent(
     name="기술_어시스턴트",
     instructions="당신은 Microsoft 기술 전문 어시스턴트입니다. ... 한국어로 답변합니다.",
 )
-result = await agent.run("Microsoft Agent Framework가 무엇인가요?")
-print(result)
+
+# 스트리밍: stream=True로 응답을 토큰 단위로 받아 생성 과정을 실시간 출력합니다.
+async for update in agent.run("Microsoft Agent Framework가 무엇인가요?", stream=True):
+    print(update.text, end="", flush=True)
+print()
 ```
+
+> 💡 **스트리밍 출력**: 모든 예제(01~06)는 답변을 **토큰 단위로 실시간 출력**해 생성 과정을
+> 눈으로 볼 수 있습니다. 공통 로직은 [`src/_streaming.py`](src/_streaming.py)에 모아 두었습니다.
+> - `stream_agent(agent, prompt)` — 단일 에이전트 응답을 토큰 단위로 출력하고 전체 텍스트를 반환(01·04·05·06)
+> - `stream_workflow(workflow, message)` — 워크플로우를 스트리밍 실행해 발화자별로 출력(02 Handoff는 토큰 단위, 03 GroupChat은 발언 단위)
 
 실행:
 
@@ -354,7 +363,7 @@ python src/01_single_agent.py
 |------|------|
 | `FoundryChatClient` | Azure AI Foundry 프로젝트에 연결하는 채팅 클라이언트 |
 | `Agent(name, instructions)` | 모델 + 역할 지시문의 단위 |
-| `await agent.run(...)` | 입력을 받아 응답 생성 |
+| `agent.run(..., stream=True)` | 입력을 받아 응답을 토큰 단위로 스트리밍 생성 |
 
 ---
 

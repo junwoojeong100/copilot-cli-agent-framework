@@ -23,6 +23,8 @@ from agent_framework import Agent, MCPStreamableHTTPTool
 from agent_framework.foundry import FoundryChatClient
 from azure.identity import AzureCliCredential
 
+from _streaming import stream_agent
+
 
 async def main():
     """MCP 도구를 연결한 에이전트를 실행하는 메인 함수"""
@@ -79,10 +81,7 @@ async def main():
                 tools=learn_mcp,
             )
 
-            result = await agent.run(question)
-
-            print("에이전트 응답:")
-            print(result)
+            await stream_agent(agent, question, label="에이전트 응답")
 
     except Exception as e:
         print(f"에이전트 실행 중 오류 발생: {e}")
