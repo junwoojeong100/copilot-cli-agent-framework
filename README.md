@@ -440,22 +440,31 @@ python src/05_mcp_agent.py
 [질문] → [1.검색 Retrieval] → [2.증강 Augmentation] → [3.생성 Generation]
 ```
 
-이 예제는 외부 인프라 없이 바로 실행되도록 **인메모리 지식 베이스 + 키워드 검색**을 사용합니다.
+이 예제는 **Azure AI Search 하이브리드(키워드 + 벡터) 검색**으로 지식 베이스를 검색합니다.
+처음 실행하면 인덱스를 자동 생성하고 문서를 임베딩하여 업로드하므로(자체 완결·멱등),
+별도 사전 준비 없이 바로 실행됩니다. 인증은 전부 키리스(`AzureCliCredential`)입니다.
 
 ### 핵심 코드
 
 ```python
-# 1) 검색: 질문과 관련된 문서를 지식 베이스에서 추출
-docs = retrieve(question, top_k=2)
+# 0) 임베딩 차원을 모델에서 동적으로 확인 → 인덱스 자동 생성(없을 때만)
+dim = len(embed(["차원 확인"])[0])
+ensure_index(index_client, index_name, dim)        # HNSW + 코사인, ko.microsoft 분석기
+
+# 1) 문서 임베딩 후 업로드(멱등 upsert) + 인덱싱 반영 대기
+seed_documents(search_client, embed)
+
+# 2) 검색: 질문을 임베딩해 하이브리드(BM25 + 벡터) 검색
+docs = retrieve(search_client, embed, question, top_k=2)
 context = build_context(docs)
 
-# 2) 증강: 검색 결과를 프롬프트에 주입
+# 3) 증강: 검색 결과를 프롬프트에 주입
 augmented_prompt = (
     f"다음 참고 문서를 바탕으로 답하세요.\n\n"
     f"--- 참고 문서 ---\n{context}\n\n--- 질문 ---\n{question}"
 )
 
-# 3) 생성: 컨텍스트 안에서만 답하도록 지시된 에이전트가 응답
+# 4) 생성: 컨텍스트 안에서만 답하도록 지시된 에이전트가 응답
 agent = Agent(
     client=client,
     name="고객지원_RAG_어시스턴트",
@@ -464,26 +473,36 @@ agent = Agent(
 result = await agent.run(augmented_prompt)
 ```
 
-핵심은 **(1) 검색 품질**과 **(2) "문서 밖 내용은 추측하지 말라"는 지시문**입니다. 이 둘이
-RAG의 정확도를 결정합니다.
+하이브리드 검색은 키워드 검색(BM25)과 벡터 검색을 RRF로 융합합니다. `VectorizedQuery`로 질문
+임베딩을 전달하고, `search_text`로 키워드 검색을 동시에 수행합니다. 핵심은 **(1) 검색 품질**과
+**(2) "문서 밖 내용은 추측하지 말라"는 지시문**입니다. 이 둘이 RAG의 정확도를 결정합니다.
 
 ```bash
 python src/06_rag_agent.py
 ```
 
-### RAG 확장 — 운영 환경으로
+> ℹ️ `VectorizedQuery`의 후보 수 인자는 SDK 버전에 따라 이름이 다릅니다. 이 랩의
+> `azure-search-documents==11.7.0b2`는 `k`(안정 버전은 `k_nearest_neighbors`)를 사용합니다.
 
-예제의 키워드 검색을 다음으로 교체하면 운영 수준 RAG가 됩니다.
+### 필요 리소스 / 환경 변수
 
-| 단계 | 실습(현재) | 운영 |
-|------|-----------|------|
-| 저장 | 파이썬 리스트 | Azure AI Search 인덱스 / 벡터 DB |
-| 검색 | 키워드 겹침 | 임베딩 기반 벡터·하이브리드 검색 |
-| 관리 | 코드에 하드코딩 | **Foundry IQ** 지식 베이스 자동 동기화 |
+| 환경 변수 | 설명 |
+|-----------|------|
+| `SEARCH_SERVICE_ENDPOINT` | Azure AI Search 엔드포인트 (`https://<name>.search.windows.net`) |
+| `SEARCH_INDEX_NAME` | RAG 인덱스 이름 (기본 `maf-lab-knowledge-v1`, 없으면 자동 생성) |
+| `AZURE_OPENAI_ENDPOINT` | 임베딩 호출용 Azure OpenAI 엔드포인트 (`https://<name>.cognitiveservices.azure.com/`) |
+| `EMBEDDING_DEPLOYMENT_NAME` | 임베딩 모델 배포 이름 (기본 `text-embedding-3-large`) |
+| `AZURE_OPENAI_API_VERSION` | Azure OpenAI API 버전 (기본 `2024-10-21`) |
 
-Azure AI Search 연동 시 `.env`의 `SEARCH_SERVICE_ENDPOINT`·`KNOWLEDGE_BASE_NAME`을 채우고
-`retrieve()`를 검색 클라이언트 호출로 바꾸면 됩니다. (Copilot에게 *"06_rag_agent.py의 retrieve를
-Azure AI Search로 교체해줘"* 라고 요청해 보세요.)
+RBAC: 실행 사용자는 검색 서비스에 **Search Service Contributor**(인덱스 생성) +
+**Search Index Data Contributor/Reader**(문서 업로드·조회) 역할이, 임베딩 호출에는 Azure OpenAI
+사용 권한이 필요합니다.
+
+### 한 단계 더 — Foundry IQ
+
+지식 베이스를 코드에서 관리하는 대신 **Foundry IQ** 지식 베이스로 자동 동기화하고,
+`agent_framework.azure`의 `AzureAISearchContextProvider`(semantic / agentic 모드)를 사용하면
+검색 단계를 프레임워크에 위임할 수 있습니다.
 
 > ✅ **체크포인트**: 지식 베이스에 없는 질문(예: "배송비는 얼마인가요?")에 에이전트가
 > "관련 정보를 찾을 수 없습니다"라고 답하면 RAG가 올바르게 동작하는 것입니다.
