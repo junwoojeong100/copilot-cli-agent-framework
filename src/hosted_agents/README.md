@@ -66,21 +66,56 @@ server.run()
 ## 사전 준비
 
 ```bash
-pip install agent-framework agent-framework-foundry-hosting
-azd ext install azure.ai.agents
-azd auth login
+azd ext install azure.ai.agents     # Foundry 에이전트 azd 확장(프리뷰)
+azd auth login                      # azd 자체 로그인(az login과 별개)
 ```
 
-## 빠른 시작 (각 폴더에서)
+> `requirements.txt`에는 메타패키지 `agent-framework` 대신 필요한 하위 패키지만
+> 명시되어 있습니다. 메타패키지는 `linux/x86_64` 전용 `agent-framework-hyperlight`를
+> 끌어와 **원격 빌드에서 의존성 충돌**을 일으키기 때문입니다.
+
+## 빠른 시작 — 코드(ZIP) 배포 (Docker 불필요, 권장)
+
+아래는 **기존 Foundry 프로젝트**에 배포하는 검증된 흐름입니다.
+`azd ai agent init`은 매니페스트 디렉터리와 분리된 **빈 작업 폴더**에서 실행하세요
+(같은 폴더에서 실행하면 "target is inside the manifest directory" 오류가 납니다).
 
 ```bash
-azd ai agent init -m ./agent.manifest.yaml   # azd 프로젝트 초기화
-azd ai agent run                             # 로컬 호스트(:8088)
-azd provision                                # (필요 시) 리소스 생성
-azd deploy                                   # Foundry에 배포
+mkdir -p ~/deploy/single && cd ~/deploy/single
+
+# 1) 기존 프로젝트에 코드(ZIP) 배포 모드로 초기화
+azd ai agent init --no-prompt \
+  -m <repo>/src/hosted_agents/01_single_agent/agent.manifest.yaml \
+  --agent-name maf-lab-single-agent \
+  --project-id "<Foundry 프로젝트 리소스 ID>" \
+  --deploy-mode code --runtime python_3_13 --entry-point main.py \
+  --protocol responses --force
+
+cd maf-lab-single-agent
+# 2) (선택) 기존 모델 배포를 그대로 사용: azure.yaml의 deployments 블록 제거 후
+azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME gpt-5.4
+azd env set AI_AGENT_PENDING_PROVISION ""
+
+# 3) 배포(원격 빌드) → 호출
+azd provision --no-prompt
+azd deploy --no-prompt
+azd ai agent invoke maf-lab-single-agent "안녕!"   # 동작 확인
+azd ai agent monitor maf-lab-single-agent          # 세션 로그(트러블슈팅)
 ```
 
-자세한 단계와 호출 예시는 각 폴더의 `README.md`를 참고하세요.
+> 로컬에서 먼저 돌려보려면 `azd ai agent run` 으로 `:8088`에 호스트할 수 있습니다.
 
-> ⚠️ Hosted Agents는 현재 **preview**이며, `linux/amd64` 컨테이너 이미지를 요구합니다.
-> Apple Silicon에서는 `docker build --platform linux/amd64 .` 로 빌드하세요.
+## 트러블슈팅 (실제 배포에서 검증)
+
+| 증상 | 원인 | 해결 |
+| --- | --- | --- |
+| `hyperlight-sandbox-backend-wasm ... ResolutionImpossible` | 메타패키지 `agent-framework`가 끌어오는 의존성 충돌 | `core`/`foundry`/`foundry-hosting` 등 **하위 패키지만** 명시 |
+| `ModuleNotFoundError: No module named 'mcp'` | 호스팅 패키지가 `mcp`를 import하지만 의존성으로 선언하지 않음 | `mcp>=1.24.0,<2` 추가(모든 예제 공통) |
+| `'agent-framework-orchestrations' is not installed` | `SequentialBuilder` 등은 별도 패키지 | 02~04에 `agent-framework-orchestrations` 추가 |
+| 모델이 `gpt-4.1`로 신규 프로비저닝됨 | init이 매니페스트의 모델 ID를 기본 채택 | azure.yaml `deployments` 제거 + env를 기존 배포(`gpt-5.4`)로 |
+| (RAG) `VectorizedQuery ... unexpected keyword 'k'` | `azure-search-documents` 버전별 인자명 차이 | 검증본 버전 핀(`==11.7.0b2`) |
+| (RAG) `session_not_ready` / 검색 함수 실패 | 인스턴스 ID에 데이터 접근 권한 없음 | 에이전트 인스턴스 ID에 **Search Index Data Reader** + **Cognitive Services OpenAI User** 부여 |
+
+> ⚠️ Hosted Agents는 현재 **preview**입니다. 컨테이너(Docker) 배포 모드를 쓰려면
+> `linux/amd64` 이미지가 필요합니다(Apple Silicon은 `--platform linux/amd64`).
+> 위 코드(ZIP) 모드는 Foundry가 원격에서 빌드하므로 로컬 Docker가 필요 없습니다.
