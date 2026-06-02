@@ -1,0 +1,19 @@
+# Azure AI Foundry Agent SDK
+azure-ai-agents==1.1.0
+azure-ai-projects==2.2.0
+azure-identity==1.25.3
+
+# OpenAI
+openai==2.38.0
+
+# MCP (Model Context Protocol)
+mcp[cli]==1.27.2
+
+# Azure AI Search (Foundry IQ 지식 베이스 연동용)
+azure-search-documents==11.7.0b2
+
+# Microsoft Agent Framework
+agent-framework==1.7.0
+
+# 유틸리티
+python-dotenv==1.2.2

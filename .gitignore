@@ -1,0 +1,10 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# 환경 변수 (시크릿 — 절대 커밋 금지)
+.env
+
+# OS
+.DS_Store
