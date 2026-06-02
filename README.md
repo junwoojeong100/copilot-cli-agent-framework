@@ -741,10 +741,10 @@ copilot
 
 ```bash
 # ✅ 허용
-git checkout -b feat/add-refund-agent
-git add . && git commit -m "feat: add refund specialist agent to handoff workflow"
-git push -u origin feat/add-refund-agent
-gh pr create --draft --base main --title "feat: add refund agent" --body "Summary in English."
+git checkout -b feat/add-cost-reviewer
+git add . && git commit -m "feat: add cost reviewer agent to concurrent workflow"
+git push -u origin feat/add-cost-reviewer
+gh pr create --draft --base main --title "feat: add cost reviewer agent" --body "Summary in English."
 
 # ❌ 금지
 git checkout main && git push origin main      # 보호 브랜치 직접 push
