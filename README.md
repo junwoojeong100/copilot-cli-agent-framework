@@ -26,6 +26,7 @@
 - [Part 10. Copilot CLI 멀티 에이전트 패턴으로 개발하기](#part-10-copilot-cli-멀티-에이전트-패턴으로-개발하기)
 - [Part 11. 바이브 코딩 — 설정만으로 코드 생성하기](#part-11-바이브-코딩--설정만으로-코드-생성하기)
 - [Part 12. 가드레일 (AGENTS.md)](#part-12-가드레일-agentsmd)
+- [Part 13. (심화) Foundry Agent SDK v2 + MAF 오케스트레이션](#part-13-심화-foundry-agent-sdk-v2--maf-오케스트레이션)
 - [부록 A. 트러블슈팅 / 부록 B. 참고 자료](#부록-a-트러블슈팅)
 
 ---
@@ -36,7 +37,8 @@
 .
 ├── README.md                       # 이 가이드
 ├── AGENTS.md                       # 에이전트 공통 가드레일 (push 금지·영문 커밋·PR 규칙)
-├── requirements.txt                # Python 의존성
+├── requirements.txt                # Python 의존성 (실습 01~06)
+├── requirements-foundry-sdk-v2.txt # Foundry Agent SDK v2 예제 전용 의존성 (오버레이)
 ├── .env.example                    # 환경변수 템플릿
 ├── .copilot/
 │   └── mcp-config.json             # MCP 서버 설정 (azure · github · microsoftLearn)
@@ -54,7 +56,13 @@
     ├── 04_custom_workflow.py       # Custom 순차 (조건부 라우팅)
     ├── 05_mcp_agent.py             # MCP 도구 연동 (외부 시스템 호출)
     ├── 06_rag_agent.py             # RAG (검색 증강 생성)
-    └── _streaming.py               # 스트리밍 출력 공용 헬퍼 (전 예제 공유)
+    ├── _streaming.py               # 스트리밍 출력 공용 헬퍼 (전 예제 공유)
+    └── foundry_sdk_v2/             # (심화) Foundry Agent SDK v2로 생성 + MAF 오케스트레이션
+        ├── _foundry_agents.py      # SDK v2 에이전트 생성·정리 헬퍼 (FoundryAgent 래핑)
+        ├── 01_single_agent.py      # 단일 에이전트
+        ├── 02_sequential_workflow.py   # 순차 (SequentialBuilder)
+        ├── 03_group_chat.py        # GroupChat (GroupChatBuilder)
+        └── 04_concurrent_workflow.py   # 동시 (ConcurrentBuilder)
 ```
 
 ---
@@ -210,6 +218,8 @@ echo "https://$SEARCH.search.windows.net"
 ```bash
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+# (심화) Foundry Agent SDK v2 예제도 실행하려면 — 오버레이 의존성 추가 설치
+pip install -r requirements-foundry-sdk-v2.txt
 cp .env.example .env        # 아래 값 입력
 az login                    # 예제는 AzureCliCredential로 이 로그인 세션을 사용
 ```
@@ -748,6 +758,82 @@ git push --force-with-lease origin <branch>     # force push
 
 ---
 
+## Part 13. (심화) Foundry Agent SDK v2 + MAF 오케스트레이션
+
+실습 01~06은 에이전트를 **MAF `FoundryChatClient`(모델 채팅)** 로 구성합니다. 이 심화
+세트는 **에이전트 "생성"은 Microsoft Foundry Agent SDK v2(`azure-ai-projects`)** 가
+맡고, **에이전트 "오케스트레이션"은 MAF 워크플로우 빌더**가 맡는 분리 구조를 보여
+줍니다. 기존 소스(01~06)는 그대로 두고, 가이드·의존성도 분리했습니다.
+
+> 위치: [`src/foundry_sdk_v2/`](src/foundry_sdk_v2/) · 의존성: `requirements-foundry-sdk-v2.txt`
+
+### 핵심 패턴 — 생성은 SDK v2, 실행은 MAF
+
+```python
+# 1단계: Foundry Agent SDK v2로 서버 측 영속 에이전트 생성
+from azure.ai.projects import AIProjectClient
+from azure.ai.projects.models import PromptAgentDefinition
+
+pc = AIProjectClient(endpoint=PROJECT_ENDPOINT, credential=AzureCliCredential())
+version = pc.agents.create_version(
+    agent_name="maf-sdkv2-analyzer-ab12cd34",
+    definition=PromptAgentDefinition(model=MODEL, instructions="...", tools=None),
+)
+
+# 2단계: 생성한 영속 에이전트를 MAF FoundryAgent로 래핑
+from agent_framework.foundry import FoundryAgent
+analyzer = FoundryAgent(
+    project_endpoint=PROJECT_ENDPOINT,
+    agent_name="maf-sdkv2-analyzer-ab12cd34",
+    agent_version=str(version.version),
+    credential=AzureCliCredential(),
+)
+
+# 3단계: MAF 워크플로우 빌더로 오케스트레이션
+from agent_framework.orchestrations import SequentialBuilder
+workflow = SequentialBuilder(participants=[analyzer, writer, editor]).build()
+```
+
+생성·정리 로직은 [`src/foundry_sdk_v2/_foundry_agents.py`](src/foundry_sdk_v2/_foundry_agents.py)의
+`FoundryAgentFactory`로 모았습니다. 실행마다 고유 이름으로 에이전트를 만들고,
+`finally`에서 `cleanup()`으로 삭제(베스트 에포트)해 프로젝트에 누적되지 않습니다.
+
+### 예제 목록 / 실행
+
+```bash
+pip install -r requirements-foundry-sdk-v2.txt   # 최초 1회 (오버레이 설치)
+cd src/foundry_sdk_v2
+
+python 01_single_agent.py        # 단일 에이전트 (스트리밍)
+python 02_sequential_workflow.py # 순차: 분석가 → 작가 → 편집자 (SequentialBuilder)
+python 03_group_chat.py          # 협업 토론: 기획자·개발자·디자이너 (GroupChatBuilder)
+python 04_concurrent_workflow.py # 동시 리뷰: 보안·성능·UX (ConcurrentBuilder)
+```
+
+각 예제는 시작 시 SDK v2로 에이전트를 만들고, MAF로 실행한 뒤, 끝나면 생성한
+에이전트를 삭제합니다. 출력은 공용 헬퍼 [`src/_streaming.py`](src/_streaming.py)로
+스트리밍 표시합니다.
+
+### ⚠️ Handoff는 제외 — 이유
+
+이 세트에는 **Handoff 예제가 없습니다.** MAF `HandoffBuilder`는 참여자에게
+`handoff_to_*` 도구를 **로컬에서 주입·호출**하고 클로닝·미들웨어를 적용하기 위해
+네이티브 MAF `Agent`를 요구합니다. SDK v2로 만든 **서버 측 영속 에이전트**는 이
+로컬 함수 호출 주입 방식과 맞지 않아(`"chat client does not support function
+invoking"`), Handoff에 바로 넣을 수 없습니다.
+
+| MAF 오케스트레이션 | SDK v2 `FoundryAgent` 호환 |
+|--------------------|:--------------------------:|
+| `SequentialBuilder` | ✅ |
+| `GroupChatBuilder` | ✅ |
+| `ConcurrentBuilder` | ✅ |
+| `HandoffBuilder` | ❌ (네이티브 MAF `Agent` 필요) |
+
+> Handoff 패턴은 기존 [`src/02_handoff_workflow.py`](src/02_handoff_workflow.py)(MAF
+> `FoundryChatClient` 기반)를 참고하세요.
+
+---
+
 ## 부록 A. 트러블슈팅
 
 | 증상 | 해결 |
@@ -757,6 +843,7 @@ git push --force-with-lease origin <branch>     # force push
 | `az`에 Foundry 명령 없음 | `az upgrade --yes`로 2.81.0+ 업그레이드 |
 | `ImportError: agent_framework...` | `pip install -U agent-framework`, 가상환경 활성화 확인 |
 | `handoff_to_*` 도구가 안 보임 | `add_handoff(from, [to...])` 호출 누락 |
+| SDK v2 `FoundryAgent`를 Handoff에 못 넣음 | 구조적 제약(Part 13 참조) — Handoff는 네이티브 MAF `Agent` 필요. Sequential/GroupChat/Concurrent 사용 |
 | Handoff `400 Invalid 'tools[0].name'` | Agent `name`에 한글/공백 사용 — handoff 도구명은 ASCII만 허용. `name`을 영문으로 변경(페르소나는 instructions) |
 | Handoff `build()` `ValueError`(persistence) | 일부 Agent에 `require_per_service_call_history_persistence=True` 누락 — 모든 참여 Agent에 지정 |
 | Workflow 출력이 `WorkflowEvent(...)` 객체로 보임 | `print(result)` 대신 `result.get_outputs()`(Handoff) / 이벤트의 `AgentExecutorResponse`(GroupChat)로 추출 |
