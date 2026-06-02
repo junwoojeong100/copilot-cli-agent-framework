@@ -41,7 +41,18 @@ server.run()
 | `PROJECT_ENDPOINT` / `MODEL_DEPLOYMENT_NAME` | 저장소 로컬 호환용 폴백 (선택) |
 
 > RAG 실행에는 에이전트(컨테이너 관리 ID)에 Azure AI Search·Azure OpenAI 접근
-> 권한(RBAC)이 필요합니다. 배포 후 에이전트 ID에 역할을 부여하세요.
+> 권한(RBAC)이 필요합니다. **배포 후** `azd ai agent show <name>` 으로 *Instance Identity
+> Principal ID* 를 확인하고 아래 두 역할을 부여하세요(전파에 1~2분 소요).
+>
+> ```bash
+> PRINC=<Instance Identity Principal ID>
+> az role assignment create --assignee-object-id $PRINC --assignee-principal-type ServicePrincipal \
+>   --role "Search Index Data Reader" --scope <Search 서비스 리소스 ID>
+> az role assignment create --assignee-object-id $PRINC --assignee-principal-type ServicePrincipal \
+>   --role "Cognitive Services OpenAI User" --scope <Foundry 계정 리소스 ID>
+> ```
+>
+> 권한이 없으면 검색 함수가 실패하고 첫 호출이 `session_not_ready`로 끝납니다.
 
 ## 로컬 실행 & 배포
 
