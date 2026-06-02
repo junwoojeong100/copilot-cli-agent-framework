@@ -47,7 +47,7 @@
 │   ├── copilot-instructions.md     # 프로젝트 전역 인스트럭션
 │   ├── instructions/               # python · azure · korean · git-commit 규칙
 │   ├── prompts/                    # add-agent · review-code (재사용 프롬프트)
-│   ├── agents/                     # orchestrator · reviewer · debugger (커스텀 에이전트)
+│   ├── agents/                     # orchestrator · planner_executor · debate_critic · generator_evaluator · code_generation · reviewer · debugger
 │   └── skills/
 │       └── agent-framework-codegen/SKILL.md   # MAF 코드 생성 패턴
 └── src/                            # Microsoft Agent Framework 예제
@@ -106,7 +106,7 @@
 | 5~7 | Sequential / GroupChat / Concurrent Workflow |
 | 8 | MCP 도구 연동 — 에이전트가 외부 시스템 호출 |
 | 9 | RAG — 검색 증강 생성으로 근거 기반 답변 |
-| 10 | Copilot CLI 멀티 에이전트 패턴(`--agent`)으로 개발 가속 |
+| 10 | Copilot CLI 멀티 에이전트 패턴(`--agent`) — 4가지 협업 패턴으로 개발 가속 |
 | 11 | 바이브 코딩 — 설정만으로 새 기능 자동 생성 |
 | 12 | 안전 가드레일 적용 |
 
@@ -638,15 +638,24 @@ RBAC: 실행 사용자는 검색 서비스에 **Search Service Contributor**(인
 ## Part 10. Copilot CLI 멀티 에이전트 패턴으로 개발하기
 
 `.github/agents/`에 역할별 에이전트를 정의하고 `copilot --agent <name>`으로 실행합니다.
-이 저장소에는 `orchestrator`, `reviewer`, `debugger`가 포함되어 있습니다.
+이 저장소에는 **7개** 에이전트가 포함되어 있습니다.
 
 ```bash
-copilot --agent orchestrator --yolo   # 요청 분석 후 최적 패턴 자동 선택
-copilot --agent reviewer              # 코드 리뷰 (읽기 전용)
-copilot --agent debugger              # 환경/런타임 문제 진단
+# 오케스트레이터 — 요청 분석 후 최적 패턴 자동 선택
+copilot --agent orchestrator --yolo
+
+# 4가지 협업 패턴 에이전트 직접 실행
+copilot --agent planner_executor --yolo    # 📐 계획-실행 패턴
+copilot --agent debate_critic --yolo       # ⚔️ 토론-비평 패턴
+copilot --agent generator_evaluator --yolo # ⚡ 생성-평가 패턴
+copilot --agent code_generation --yolo     # 🏗️ 코드 생성 패턴
+
+# 단독 전문 에이전트
+copilot --agent reviewer                   # 코드 리뷰 (읽기 전용)
+copilot --agent debugger                   # 환경/런타임 문제 진단
 ```
 
-`orchestrator`는 요청을 분석해 4가지 협업 패턴 중 하나를 선택합니다:
+`orchestrator`는 요청을 분석해 4가지 협업 패턴 중 하나를 선택하고 해당 패턴 에이전트에 위임합니다:
 
 | 사용자 의도 | 선택 패턴 |
 |------------|----------|
@@ -654,6 +663,100 @@ copilot --agent debugger              # 환경/런타임 문제 진단
 | "비교해줘", "장단점", "뭐가 나을까" | ⚔️ Debate & Critic |
 | "생성해줘", "리뷰해줘", "개선해줘" | ⚡ Generator-Evaluator |
 | "설계하고 구현해줘", "코드 작성하고 리뷰해줘" | 🏗️ Code Generation |
+
+### 에이전트 패턴 상세
+
+각 패턴은 **여러 전문 에이전트가 역할을 분담**하여 협업합니다. 모든 팀에는 과정·결과를 문서화하는 **Scribe**가 포함됩니다.
+
+#### 📐 Planner-Executor
+
+> 계획 수립과 실행을 분리하여 체계적으로 작업을 완수
+
+| 에이전트 | 역할 |
+|---------|------|
+| **Planner** | 요구사항 분석 → 태스크 목록·의존성·완료 기준 정의 |
+| **Executor** | 계획에 따라 태스크를 순서대로 구현 |
+| **Validator** | 각 태스크 검증 — Pass/Revise 판정 |
+| **Scribe** | 계획·실행·검증 과정 문서화 |
+
+```
+요구사항 → Planner → Executor → Validator →(Revise)→ Planner
+                                          →(Pass)→ 다음 태스크 → … → Scribe
+```
+
+적합한 작업: 구현, 마이그레이션, 리팩토링, 단계별 셋업
+
+---
+
+#### ⚔️ Debate & Critic
+
+> 대립적 논증과 비평을 통해 최선의 결론에 도달
+
+| 에이전트 | 역할 |
+|---------|------|
+| **Proposer** | 찬성/제안 측 입장과 근거 제시 |
+| **Opponent** | 반대 논증 및 대안 제시 |
+| **Critic** | 양측 논증의 강점·약점 객관적 분석 |
+| **Synthesizer** | 논의 종합 후 수렴 판단 — 수렴 시 권고안 도출 |
+| **Scribe** | 논의 과정·최종 결론 문서화 |
+
+```
+주제 → Proposer → Opponent → Critic → Synthesizer →(수렴)→ Scribe
+                                                  →(미수렴)→ Round 2 (최대 3 Rounds)
+```
+
+적합한 작업: 기술 선택, 아키텍처 비교, 장단점 분석
+
+---
+
+#### ⚡ Generator-Evaluator
+
+> 생성과 평가를 반복하여 품질을 높임
+
+| 에이전트 | 역할 |
+|---------|------|
+| **Generator** | 요구사항을 충족하는 초안 생성 |
+| **Evaluator** | 기준표 기반 품질 평가 — Pass/Fail 판정 |
+| **Refiner** | Evaluator 피드백 반영하여 산출물 개선 |
+| **Scribe** | Cycle별 개선 이력·최종 결과 문서화 |
+
+```
+요구사항 → Generator → Evaluator →(Pass)→ Scribe
+                               →(Fail)→ Refiner → Evaluator (최대 3 Cycles)
+```
+
+적합한 작업: 코드·문서 생성, 리뷰 기반 반복 개선
+
+---
+
+#### 🏗️ Code Generation
+
+> 설계 → 구현 → 리뷰를 체계적으로 연결
+
+| 에이전트 | 역할 |
+|---------|------|
+| **Architect** | 코드 구조·인터페이스·의존성·패턴 설계 |
+| **Developer** | Architect 설계에 따라 코드 구현, Reviewer 피드백 반영 수정 |
+| **Reviewer** | 보안·코드 품질·설계 준수 검증 — Pass/Revise 판정 |
+| **Scribe** | 설계·구현·리뷰 과정·최종 명세 문서화 |
+
+```
+요구사항 → Architect → Developer → Reviewer →(Pass)→ Scribe
+                                            →(Revise)→ Developer (최대 3 Cycles)
+```
+
+적합한 작업: 신규 기능 설계·구현·리뷰 통합
+
+---
+
+### 패턴별 비교
+
+| | 📐 Planner-Executor | ⚔️ Debate & Critic | ⚡ Generator-Evaluator | 🏗️ Code Generation |
+|---|---|---|---|---|
+| **목적** | 체계적 실행 | 최선의 결론 도출 | 반복 개선으로 품질 향상 | 설계 기반 코드 생성 |
+| **팀 구성** | Planner·Executor·Validator·Scribe | Proposer·Opponent·Critic·Synthesizer·Scribe | Generator·Evaluator·Refiner·Scribe | Architect·Developer·Reviewer·Scribe |
+| **핵심 루프** | 계획→실행→검증 | 제안→반론→평가 | 생성→평가→개선 | 설계→구현→리뷰 |
+| **최대 반복** | 3회 Revise | 3 Rounds | 3 Cycles | 3 Cycles |
 
 ### MCP 서버 연결
 
