@@ -1,6 +1,4 @@
-# Azure AI Foundry Agent SDK
-azure-ai-agents==1.1.0
-azure-ai-projects==2.2.0
+# 인증 (키리스 AAD)
 azure-identity==1.25.3
 
 # OpenAI

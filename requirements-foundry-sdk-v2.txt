@@ -1,0 +1,19 @@
+# =====================================================================
+# Foundry Agent SDK v2 추가 예제 전용 의존성 (src/foundry_sdk_v2/)
+# ---------------------------------------------------------------------
+# 기존 예제(01~06)와 버전 관리를 분리합니다.
+# 기본 의존성 위에 SDK v2 패키지를 덧입히는 오버레이 파일입니다.
+#
+# 설치:
+#   pip install -r requirements-foundry-sdk-v2.txt
+# =====================================================================
+
+# 기존 예제(01~06) 공통 의존성 포함
+-r requirements.txt
+
+# Microsoft Foundry Agent SDK v2 (서버 측 영속 에이전트 생성용)
+azure-ai-projects==2.2.0
+azure-ai-agents==1.1.0
+
+# Azure Monitor(Application Insights) 분산 추적 (트레이싱)
+azure-monitor-opentelemetry==1.8.8
