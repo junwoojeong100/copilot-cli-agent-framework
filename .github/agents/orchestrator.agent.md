@@ -16,12 +16,15 @@ appropriate collaboration pattern, and then drives that pattern's workflow to co
 
 ## Available Patterns
 
-| Pattern | Best For |
-|---------|----------|
-| **Planner-Executor** | 구현, 마이그레이션, 리팩토링 등 **계획 → 실행 → 검증** 작업 |
-| **Debate & Critic** | 아키텍처 선택, 기술 스택 비교 등 **의사결정** 주제 |
-| **Generator-Evaluator** | 코드/문서 생성, 리뷰 등 **생성 → 평가 → 개선** 작업 |
-| **Code Generation** | 코드 설계·구현·리뷰 등 **설계 → 구현 → 리뷰** 작업 |
+각 패턴은 전용 에이전트 파일(`.github/agents/<name>.agent.md`)로 정의되어 있어
+`copilot --agent <name>` 으로 직접 실행하거나, Orchestrator가 자동 선택하여 위임합니다.
+
+| Pattern | Agent Name | Best For |
+|---------|-----------|----------|
+| **Planner-Executor** | `planner_executor` | 구현, 마이그레이션, 리팩토링 등 **계획 → 실행 → 검증** 작업 |
+| **Debate & Critic** | `debate_critic` | 아키텍처 선택, 기술 스택 비교 등 **의사결정** 주제 |
+| **Generator-Evaluator** | `generator_evaluator` | 코드/문서 생성, 리뷰 등 **생성 → 평가 → 개선** 작업 |
+| **Code Generation** | `code_generation` | 코드 설계·구현·리뷰 등 **설계 → 구현 → 리뷰** 작업 |
 
 ## Selection Heuristics
 
@@ -57,12 +60,18 @@ If the intent is unclear, ask the user:
 2. **Analyze** — 요청의 핵심 의도를 파악한다
 3. **Select** — 위 Heuristics에 따라 패턴을 선택한다
 4. **Announce** — 선택한 패턴과 이유를 한 줄로 알려준다
-5. **Execute** — 선택한 패턴의 각 단계(역할)를 순서대로 수행한다. 전용 커스텀 에이전트가 있는
-   단계는 해당 에이전트에 위임한다(코드 리뷰 → `reviewer`, 환경/런타임 진단 → `debugger`).
+5. **Execute** — 아래 두 가지 방법 중 하나로 패턴을 실행한다:
+   - **위임(권장)**: 해당 패턴의 전용 에이전트 파일(`.github/agents/<name>.agent.md`)을
+     `task` 도구로 스폰하여 위임한다.
+   - **인라인**: 전용 에이전트를 사용할 수 없는 경우, 선택한 패턴의 각 단계(역할)를
+     순서대로 직접 수행한다. 전용 커스텀 에이전트가 있는 단계(코드 리뷰 → `reviewer`,
+     환경/런타임 진단 → `debugger`)는 해당 에이전트에 위임한다.
 
 ## Rules
 
 - **패턴의 단계 순서를 정확히 따른다.** 계획 → 실행 → 검증처럼 각 단계의 역할을 명확히 구분해 수행한다.
+- 전용 패턴 에이전트(`planner_executor`, `debate_critic`, `generator_evaluator`, `code_generation`)가
+  있을 경우 `task` 도구로 위임하여 실행한다. 직접 시뮬레이션하거나 역할극 하지 말 것.
 - 리뷰·진단처럼 전용 에이전트가 정의된 작업은 직접 흉내내지 말고 해당 에이전트에 위임한다.
 - 사용자가 명시적으로 패턴을 지정하면 분석 없이 바로 해당 패턴을 사용한다.
 
