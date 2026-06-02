@@ -29,7 +29,7 @@
 코드 생성 시 이 프로젝트의 기존 패턴을 따른다:
 
 - Chat 클라이언트는 `FoundryChatClient(project_endpoint=..., model=..., credential=...)`로 생성 (키워드 인자)
-- 에이전트는 `Agent(client, name=..., instructions=...)`로 생성하고(`client`만 위치 인자), 역할은 `instructions`로 부여
+- 에이전트는 `Agent(client=client, name=..., instructions=...)`로 생성하고(모든 인자 키워드 형태), 역할은 `instructions`로 부여
 - Sequential은 `SequentialBuilder(participants=[...]).build()`로 순차 파이프라인 구성
 - GroupChat은 `GroupChatBuilder(participants=..., selection_func=..., max_rounds=...).build()`
 - Concurrent는 `ConcurrentBuilder(participants=[...]).build()`로 병렬 검토 구성
