@@ -971,10 +971,10 @@ mkdir -p ~/deploy/single-agent && cd ~/deploy/single-agent
 azd ai agent init -m "$MANIFEST"             # azd 프로젝트 초기화
 
 cd maf-lab-single-agent
-azd ai agent run                             # 로컬 호스트(:8088)
-azd ai agent invoke --local "질문"            # 로컬 호출 테스트
+azd ai agent run                             # 로컬 호스트(:8088) — 블로킹; 아래는 다른 터미널에서 실행
+azd ai agent invoke --local "질문"            # 로컬 호출 테스트 (별도 터미널)
 azd provision --no-prompt                    # (필요 시) 리소스 생성
-azd deploy --no-prompt                       # 컨테이너 빌드 → ACR → Foundry 배포
+azd deploy --no-prompt                       # 코드(ZIP) 빌드 → Foundry 배포 (Docker·ACR 불필요)
 ```
 
 배포 후 포털 **Assets → 에이전트 → Traces 탭**에서 단계별 모델 호출을 추적하고,
@@ -990,7 +990,8 @@ Application Insights에서 토큰·비용 메트릭을 확인할 수 있습니�
 | `AzureCliCredential` | `DefaultAzureCredential` (컨테이너 관리 ID) |
 | 저장소 `.env`(`PROJECT_ENDPOINT`) | Foundry 주입 env(`FOUNDRY_PROJECT_ENDPOINT`) |
 
-> ⚠️ Hosted Agents는 현재 **preview**이며 `linux/amd64` 이미지를 요구합니다.
+> ⚠️ Hosted Agents는 현재 **preview**입니다. 코드(ZIP) 배포 모드(권장)는 Docker가 불필요합니다.
+> 컨테이너 모드를 사용하는 경우 `linux/amd64` 이미지가 필요합니다(`--platform linux/amd64`).
 > 자세한 단계는 각 폴더의 `README.md`를 참고하세요.
 
 ---
