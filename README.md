@@ -116,25 +116,106 @@
 | **Azure CLI 2.81.0+** | Foundry 인증 + Azure MCP 서버 자격증명 | `az upgrade --yes` |
 | **GitHub PAT** | GitHub MCP 서버 인증 (`github` 블록 사용 시 필수, 미사용 시 선택) | <https://github.com/settings/tokens> |
 
-### 1.2 Azure AI Foundry
+### 1.2 Azure 리소스 프로비저닝
 
-- **Azure 구독** + **Azure AI Foundry 프로젝트** 생성, 모델 배포 완료(예: `gpt-4o`)
-- `az login` 완료 — 예제는 `AzureCliCredential`로 이 로그인 세션을 사용합니다.
+예제 실행에는 **Azure AI Foundry 리소스·프로젝트·모델 배포**가 필요하고, 실습 9(RAG)에는
+추가로 **Azure AI Search 서비스**가 필요합니다. 포털에서 만들어도 되지만, 아래 `az` CLI로
+한 번에 프로비저닝할 수 있습니다. (Foundry 프로젝트·모델은 [Azure AI Foundry 포털](https://ai.azure.com)에서도 생성 가능합니다.)
+
+```bash
+az login
+
+# 0) 변수 설정 (이름은 전역 고유해야 하며, 리전은 모델 가용성에 맞게 조정)
+RG=rg-maf-lab
+LOCATION=eastus2
+FOUNDRY=foundry-maf-lab          # Foundry(AIServices) 리소스 이름
+PROJECT=proj-maf-lab             # Foundry 프로젝트 이름
+SEARCH=search-maf-lab            # Azure AI Search 서비스 이름
+
+az group create -n $RG -l $LOCATION
+
+# 1) Foundry(AIServices) 리소스 생성 (키리스 AAD 인증을 위해 custom-domain 지정)
+az cognitiveservices account create \
+  -n $FOUNDRY -g $RG -l $LOCATION \
+  --kind AIServices --sku S0 --custom-domain $FOUNDRY --yes
+
+# 2) Foundry 프로젝트 생성
+az cognitiveservices account project create \
+  -n $FOUNDRY -g $RG -l $LOCATION --project-name $PROJECT
+
+# (선택) 배포 가능한 모델·버전 확인
+az cognitiveservices account list-models -n $FOUNDRY -g $RG -o table
+
+# 3) 채팅 모델 배포 (실습 1~6) — 리전에서 사용 가능한 버전으로 변경
+az cognitiveservices account deployment create \
+  -n $FOUNDRY -g $RG \
+  --deployment-name gpt-4o \
+  --model-name gpt-4o --model-version 2024-11-20 --model-format OpenAI \
+  --sku-name GlobalStandard --sku-capacity 10
+
+# 4) 임베딩 모델 배포 (실습 9 RAG 전용)
+az cognitiveservices account deployment create \
+  -n $FOUNDRY -g $RG \
+  --deployment-name text-embedding-3-large \
+  --model-name text-embedding-3-large --model-version 1 --model-format OpenAI \
+  --sku-name Standard --sku-capacity 10
+
+# 5) Azure AI Search 서비스 생성 (실습 9 RAG 전용)
+az search service create -n $SEARCH -g $RG -l $LOCATION --sku basic
+
+# 6) 권한(RBAC) — 본인 계정에 데이터플레인 역할 부여 (키리스 인증)
+ME=$(az ad signed-in-user show --query id -o tsv)
+ACC_ID=$(az cognitiveservices account show -n $FOUNDRY -g $RG --query id -o tsv)
+SEARCH_ID=$(az resource show -g $RG -n $SEARCH \
+  --resource-type Microsoft.Search/searchServices --query id -o tsv)
+
+az role assignment create --assignee $ME --role "Cognitive Services User" --scope $ACC_ID
+az role assignment create --assignee $ME --role "Cognitive Services OpenAI User" --scope $ACC_ID
+az role assignment create --assignee $ME --role "Search Service Contributor"     --scope $SEARCH_ID
+az role assignment create --assignee $ME --role "Search Index Data Contributor"  --scope $SEARCH_ID
+az role assignment create --assignee $ME --role "Search Index Data Reader"       --scope $SEARCH_ID
+```
+
+> **RAG 인덱스 생성**: 별도 명령이 필요 없습니다. 실습 9의 `06_rag_agent.py`가 **첫 실행 시
+> 인덱스를 자동 생성**하고 문서를 임베딩·업로드합니다(멱등). 위에서 만든 **Search 서비스**만 있으면 됩니다.
+
+`.env`에 채울 엔드포인트 값은 다음으로 확인합니다.
+
+```bash
+# PROJECT_ENDPOINT (Foundry API 엔드포인트)
+echo "https://$FOUNDRY.services.ai.azure.com/api/projects/$PROJECT"
+
+# AZURE_OPENAI_ENDPOINT (임베딩 호출용)
+az cognitiveservices account show -n $FOUNDRY -g $RG --query "properties.endpoint" -o tsv
+
+# SEARCH_SERVICE_ENDPOINT
+echo "https://$SEARCH.search.windows.net"
+```
+
+> 이미 Foundry/Search 리소스가 있다면 이 단계를 건너뛰고 기존 엔드포인트를 `.env`에 입력하세요.
 
 ### 1.3 설치
 
 ```bash
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env        # PROJECT_ENDPOINT / MODEL_DEPLOYMENT_NAME 입력
-az login
+cp .env.example .env        # 아래 값 입력
+az login                    # 예제는 AzureCliCredential로 이 로그인 세션을 사용
 ```
 
-`.env` 핵심 값:
+`.env` 값 (실습 1~5는 상단 2줄만 있으면 동작, 실습 9 RAG는 전체 필요):
 
 ```bash
+# 실습 1~6 공통 (Foundry 채팅)
 PROJECT_ENDPOINT=https://your-resource.services.ai.azure.com/api/projects/your-project
 MODEL_DEPLOYMENT_NAME=gpt-4o
+
+# 실습 9 (RAG) — Azure AI Search + 임베딩
+SEARCH_SERVICE_ENDPOINT=https://your-search-service.search.windows.net
+SEARCH_INDEX_NAME=maf-lab-knowledge-v1
+AZURE_OPENAI_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
+EMBEDDING_DEPLOYMENT_NAME=text-embedding-3-large
+AZURE_OPENAI_API_VERSION=2024-10-21
 ```
 
 ---
