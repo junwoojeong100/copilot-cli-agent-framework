@@ -149,8 +149,8 @@ az cognitiveservices account list-models -n $FOUNDRY -g $RG -o table
 # 3) 채팅 모델 배포 (실습 1~6) — 리전에서 사용 가능한 버전으로 변경
 az cognitiveservices account deployment create \
   -n $FOUNDRY -g $RG \
-  --deployment-name gpt-4o \
-  --model-name gpt-4o --model-version 2024-11-20 --model-format OpenAI \
+  --deployment-name gpt-5.4 \
+  --model-name gpt-5.4 --model-version 2026-03-05 --model-format OpenAI \
   --sku-name GlobalStandard --sku-capacity 10
 
 # 4) 임베딩 모델 배포 (실습 9 RAG 전용)
@@ -218,7 +218,7 @@ az login                    # 예제는 AzureCliCredential로 이 로그인 세�
 ```bash
 # 실습 1~6 공통 (Foundry 채팅)
 PROJECT_ENDPOINT=https://your-resource.services.ai.azure.com/api/projects/your-project
-MODEL_DEPLOYMENT_NAME=gpt-4o
+MODEL_DEPLOYMENT_NAME=gpt-5.4
 
 # 실습 9 (RAG) — Azure AI Search + 임베딩
 SEARCH_SERVICE_ENDPOINT=https://your-search-service.search.windows.net
@@ -332,7 +332,7 @@ Copilot CLI/Chat는 작업 디렉토리의 `.github/` 설정과 `AGENTS.md`를 �
 ```python
 client = FoundryChatClient(
     project_endpoint=os.getenv("PROJECT_ENDPOINT"),
-    model=os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-4o"),
+    model=os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-5.4"),
     credential=AzureCliCredential(),
 )
 agent = Agent(

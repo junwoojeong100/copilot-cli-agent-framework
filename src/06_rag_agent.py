@@ -251,7 +251,7 @@ async def main():
 
     # ── 1단계: 환경 변수 확인 ──
     project_endpoint = os.getenv("PROJECT_ENDPOINT")
-    model = os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-4o")
+    model = os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-5.4")
     search_endpoint = os.getenv("SEARCH_SERVICE_ENDPOINT")
     index_name = os.getenv("SEARCH_INDEX_NAME", "maf-lab-knowledge-v1")
     aoai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
