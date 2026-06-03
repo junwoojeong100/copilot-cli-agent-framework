@@ -285,63 +285,19 @@ copilot
 
 > 💡 이 실습에서는 Copilot CLI에게 "이런 에이전트를 만들어줘"라고 지시하고, 생성된 코드를
 > 검토·실행합니다. `src/`의 예제는 그 결과물의 완성본입니다.
+>
+> 📄 **자세히 보기**: [`docs/copilot-cli-guide.md`](docs/copilot-cli-guide.md) — 설치부터 활용까지 ·
+> [`docs/vscode-vs-copilot-cli.md`](docs/vscode-vs-copilot-cli.md) — VS Code(IDE) vs CLI 비교
 
 ---
 
 ## Part 3. Copilot을 "조종"하는 `.github/` 설정
 
 Copilot CLI/Chat는 작업 디렉토리의 `.github/` 설정과 `AGENTS.md`를 읽어 **동작 방식을 바꿉니다.**
+지침(instructions)·에이전트(agents)·스킬(skills)·프롬프트(prompts) 구성과 각 구성요소의 역할,
+`SKILL.md`·`*.agent.md` 구조에 대한 자세한 설명은 별도 문서로 분리했습니다.
 
-```text
-.github/
-├── copilot-instructions.md   # 전역 페르소나·코딩 스타일·프로젝트 규칙
-├── instructions/             # 경로/언어별 세부 규칙
-│   ├── python.instructions.md
-│   ├── azure.instructions.md
-│   ├── korean.instructions.md
-│   └── git-commit.instructions.md
-├── prompts/                  # 재사용 프롬프트 (VS Code Copilot Chat에서 /프롬프트명)
-│   ├── add-agent.prompt.md
-│   └── review-code.prompt.md
-├── agents/                   # 커스텀 에이전트 (copilot --agent <name>)
-│   ├── orchestrator.agent.md       # 오케스트레이터 — 패턴 자동 선택
-│   ├── planner_executor.agent.md   # 계획-실행 패턴
-│   ├── debate_critic.agent.md      # 토론-비평 패턴
-│   ├── generator_evaluator.agent.md # 생성-평가 패턴
-│   ├── code_generation.agent.md    # 코드 생성 패턴
-│   ├── reviewer.agent.md           # 코드 리뷰 (읽기 전용)
-│   └── debugger.agent.md           # 환경/런타임 진단
-└── skills/
-    └── agent-framework-codegen/SKILL.md   # MAF 코드 생성 패턴 주입
-```
-
-| 구성요소 | 역할 |
-|----------|------|
-| `copilot-instructions.md` | 프로젝트 전반에 항상 적용되는 규칙 |
-| `instructions/*` | `applyTo` 글롭으로 특정 파일/언어에만 적용되는 규칙 |
-| `prompts/*` | 반복 작업 템플릿. **VS Code Copilot Chat**에서 `/프롬프트명`으로 호출(CLI는 자연어로 동일 요청) |
-| `agents/*` | `copilot --agent`로 실행하는 역할별 에이전트 |
-| `skills/*` | SDK 사용법·패턴을 Copilot에 "교육"하는 전문 지식 |
-
-#### `SKILL.md` 구조 (Skill)
-
-| 필드 | 설명 |
-|------|------|
-| `name` | 스킬 식별자 |
-| `description` | **언제 쓰는지**(USE FOR / DO NOT USE FOR). Copilot이 이 설명을 보고 로드 여부를 결정 |
-| 본문 | SDK 패턴·예제. 관련 작업일 때만 로드됨(**점진적 공개** → 토큰 절약) |
-
-#### `*.agent.md` frontmatter (Custom Agent)
-
-| 필드 | 설명 |
-|------|------|
-| `name` | 선택 (생략 시 파일명 사용) |
-| `description` | **필수** — 에이전트의 역할 |
-| `tools` | 허용 도구 별칭: `read`·`search`·`edit`·`execute`·`agent`·`web` (생략=전체 허용, `[]`=없음) |
-| `model` / `target` | 선택 — 사용할 모델, 실행 대상(`vscode`/`github-copilot`) |
-
-> ✅ **체크포인트**: 이 폴더에서 `copilot`을 실행하면, 생성되는 코드가 위 규칙(async·한국어·
-> `AzureCliCredential`·`FoundryChatClient` 패턴)을 자동으로 따릅니다.
+> 📄 **자세히 보기**: [`docs/github-config-guide.md`](docs/github-config-guide.md)
 
 ---
 
@@ -645,125 +601,14 @@ RBAC: 실행 사용자는 검색 서비스에 **Search Service Contributor**(인
 ## Part 10. Copilot CLI 멀티 에이전트 패턴으로 개발하기
 
 `.github/agents/`에 역할별 에이전트를 정의하고 `copilot --agent <name>`으로 실행합니다.
-이 저장소에는 **7개** 에이전트가 포함되어 있습니다.
+이 저장소에는 **7개** 에이전트(오케스트레이터 + 4가지 협업 패턴 + reviewer·debugger)가 포함되어
+있습니다. `orchestrator`는 요청을 분석해 4가지 협업 패턴(📐 Planner-Executor, ⚔️ Debate & Critic,
+⚡ Generator-Evaluator, 🏗️ Code Generation) 중 하나를 자동 선택해 위임합니다.
 
-```bash
-# 오케스트레이터 — 요청 분석 후 최적 패턴 자동 선택
-copilot --agent orchestrator --yolo
+각 에이전트의 실행 명령, 오케스트레이터 라우팅 규칙, 패턴별 팀 구성·협업 흐름·비교표 등 자세한
+설명은 별도 문서로 분리했습니다.
 
-# 4가지 협업 패턴 에이전트 직접 실행
-copilot --agent planner_executor --yolo    # 📐 계획-실행 패턴
-copilot --agent debate_critic --yolo       # ⚔️ 토론-비평 패턴
-copilot --agent generator_evaluator --yolo # ⚡ 생성-평가 패턴
-copilot --agent code_generation --yolo     # 🏗️ 코드 생성 패턴
-
-# 단독 전문 에이전트
-copilot --agent reviewer                   # 코드 리뷰 (읽기 전용)
-copilot --agent debugger                   # 환경/런타임 문제 진단
-```
-
-`orchestrator`는 요청을 분석해 4가지 협업 패턴 중 하나를 선택하고 해당 패턴 에이전트에 위임합니다:
-
-| 사용자 의도 | 선택 패턴 |
-|------------|----------|
-| "구현해줘", "셋업해줘", "마이그레이션" | 📐 Planner-Executor |
-| "비교해줘", "장단점", "뭐가 나을까" | ⚔️ Debate & Critic |
-| "생성해줘", "리뷰해줘", "개선해줘" | ⚡ Generator-Evaluator |
-| "설계하고 구현해줘", "코드 작성하고 리뷰해줘" | 🏗️ Code Generation |
-
-### 에이전트 패턴 상세
-
-각 패턴은 **여러 전문 에이전트가 역할을 분담**하여 협업합니다. 모든 팀에는 과정·결과를 문서화하는 **Scribe**가 포함됩니다.
-
-#### 📐 Planner-Executor
-
-> 계획 수립과 실행을 분리하여 체계적으로 작업을 완수
-
-| 에이전트 | 역할 |
-|---------|------|
-| **Planner** | 요구사항 분석 → 태스크 목록·의존성·완료 기준 정의 |
-| **Executor** | 계획에 따라 태스크를 순서대로 구현 |
-| **Validator** | 각 태스크 검증 — Pass/Revise 판정 |
-| **Scribe** | 계획·실행·검증 과정 문서화 |
-
-```
-요구사항 → Planner → Executor → Validator →(Revise)→ Planner
-                                          →(Pass)→ 다음 태스크 → … → Scribe
-```
-
-적합한 작업: 구현, 마이그레이션, 리팩토링, 단계별 셋업
-
----
-
-#### ⚔️ Debate & Critic
-
-> 대립적 논증과 비평을 통해 최선의 결론에 도달
-
-| 에이전트 | 역할 |
-|---------|------|
-| **Proposer** | 찬성/제안 측 입장과 근거 제시 |
-| **Opponent** | 반대 논증 및 대안 제시 |
-| **Critic** | 양측 논증의 강점·약점 객관적 분석 |
-| **Synthesizer** | 논의 종합 후 수렴 판단 — 수렴 시 권고안 도출 |
-| **Scribe** | 논의 과정·최종 결론 문서화 |
-
-```
-주제 → Proposer → Opponent → Critic → Synthesizer →(수렴)→ Scribe
-                                                  →(미수렴)→ Round 2 (최대 3 Rounds)
-```
-
-적합한 작업: 기술 선택, 아키텍처 비교, 장단점 분석
-
----
-
-#### ⚡ Generator-Evaluator
-
-> 생성과 평가를 반복하여 품질을 높임
-
-| 에이전트 | 역할 |
-|---------|------|
-| **Generator** | 요구사항을 충족하는 초안 생성 |
-| **Evaluator** | 기준표 기반 품질 평가 — Pass/Fail 판정 |
-| **Refiner** | Evaluator 피드백 반영하여 산출물 개선 |
-| **Scribe** | Cycle별 개선 이력·최종 결과 문서화 |
-
-```
-요구사항 → Generator → Evaluator →(Pass)→ Scribe
-                               →(Fail)→ Refiner → Evaluator (최대 3 Cycles)
-```
-
-적합한 작업: 코드·문서 생성, 리뷰 기반 반복 개선
-
----
-
-#### 🏗️ Code Generation
-
-> 설계 → 구현 → 리뷰를 체계적으로 연결
-
-| 에이전트 | 역할 |
-|---------|------|
-| **Architect** | 코드 구조·인터페이스·의존성·패턴 설계 |
-| **Developer** | Architect 설계에 따라 코드 구현, Reviewer 피드백 반영 수정 |
-| **Reviewer** | 보안·코드 품질·설계 준수 검증 — Pass/Revise 판정 |
-| **Scribe** | 설계·구현·리뷰 과정·최종 명세 문서화 |
-
-```
-요구사항 → Architect → Developer → Reviewer →(Pass)→ Scribe
-                                            →(Revise)→ Developer (최대 3 Cycles)
-```
-
-적합한 작업: 신규 기능 설계·구현·리뷰 통합
-
----
-
-### 패턴별 비교
-
-| | 📐 Planner-Executor | ⚔️ Debate & Critic | ⚡ Generator-Evaluator | 🏗️ Code Generation |
-|---|---|---|---|---|
-| **목적** | 체계적 실행 | 최선의 결론 도출 | 반복 개선으로 품질 향상 | 설계 기반 코드 생성 |
-| **팀 구성** | Planner·Executor·Validator·Scribe | Proposer·Opponent·Critic·Synthesizer·Scribe | Generator·Evaluator·Refiner·Scribe | Architect·Developer·Reviewer·Scribe |
-| **핵심 루프** | 계획→실행→검증 | 제안→반론→평가 | 생성→평가→개선 | 설계→구현→리뷰 |
-| **최대 반복** | 3회 Revise | 3 Rounds | 3 Cycles | 3 Cycles |
+> 📄 **자세히 보기**: [`docs/custom-agents-guide.md`](docs/custom-agents-guide.md)
 
 ### MCP 서버 연결
 
@@ -856,6 +701,8 @@ copilot
 
 > ✅ **최종 체크포인트**: 직접 만든 `.github/` 설정만으로 Copilot이 새 에이전트/기능을 추가하게
 > 만들 수 있으면, 이 실습의 목표를 달성한 것입니다.
+>
+> 📄 **자세히 보기**: [`docs/vibe-coding-guide.md`](docs/vibe-coding-guide.md) — CLI 워크플로우 흐름도, 재사용 팁
 
 ---
 
@@ -888,219 +735,27 @@ git push --force-with-lease origin <branch>     # force push
 
 실습 01~06은 에이전트를 **MAF `FoundryChatClient`(모델 채팅)** 로 구성합니다. 이 심화
 세트는 **에이전트 "생성"은 Microsoft Foundry Agent SDK v2(`azure-ai-projects`)** 가
-맡고, **에이전트 "오케스트레이션"은 MAF 워크플로우 빌더**가 맡는 분리 구조를 보여
-줍니다. 기존 소스(01~06)는 그대로 두고, 가이드·의존성도 분리했습니다.
+맡고, **에이전트 "오케스트레이션"은 MAF 워크플로우 빌더**가 맡는 분리 구조를 보여줍니다.
+핵심 패턴(생성=SDK v2 / 실행=MAF), 예제 목록·실행, MCP·RAG 연동, Application Insights
+분산 추적 설정 등 자세한 내용은 별도 문서로 분리했습니다.
 
 > 위치: [`src/foundry_sdk_v2/`](src/foundry_sdk_v2/) · 의존성: `requirements-foundry-sdk-v2.txt`
-
-### 핵심 패턴 — 생성은 SDK v2, 실행은 MAF
-
-```python
-# 1단계: Foundry Agent SDK v2로 서버 측 영속 에이전트 생성
-from azure.ai.projects import AIProjectClient
-from azure.ai.projects.models import PromptAgentDefinition
-
-pc = AIProjectClient(endpoint=PROJECT_ENDPOINT, credential=AzureCliCredential())
-version = pc.agents.create_version(
-    agent_name="maf-sdkv2-analyzer-ab12cd34",
-    definition=PromptAgentDefinition(model=MODEL, instructions="...", tools=None),
-)
-
-# 2단계: 생성한 영속 에이전트를 MAF FoundryAgent로 래핑
-from agent_framework.foundry import FoundryAgent
-analyzer = FoundryAgent(
-    project_endpoint=PROJECT_ENDPOINT,
-    agent_name="maf-sdkv2-analyzer-ab12cd34",
-    agent_version=str(version.version),
-    credential=AzureCliCredential(),
-)
-
-# 3단계: MAF 워크플로우 빌더로 오케스트레이션
-from agent_framework.orchestrations import SequentialBuilder
-workflow = SequentialBuilder(participants=[analyzer, writer, editor]).build()
-```
-
-생성·정리 로직은 [`src/foundry_sdk_v2/_foundry_agents.py`](src/foundry_sdk_v2/_foundry_agents.py)의
-`FoundryAgentFactory`로 모았습니다. 실행마다 고유 이름으로 에이전트를 만들고,
-`finally`에서 `cleanup()`으로 삭제(베스트 에포트)해 프로젝트에 누적되지 않습니다.
-
-### 예제 목록 / 실행
-
-```bash
-pip install -r requirements-foundry-sdk-v2.txt   # 최초 1회 (오버레이 설치)
-cd src/foundry_sdk_v2
-
-python 01_single_agent.py        # 단일 에이전트 (스트리밍)
-python 02_sequential_workflow.py # 순차: 분석가 → 작가 → 편집자 (SequentialBuilder)
-python 03_group_chat.py          # 협업 토론: 기획자·개발자·디자이너 (GroupChatBuilder)
-python 04_concurrent_workflow.py # 동시 리뷰: 보안·성능·UX (ConcurrentBuilder)
-python 05_mcp_agent.py           # MCP 도구 연동 (서버 측 MCPTool, Microsoft Learn)
-python 06_rag_agent.py           # RAG (Azure AI Search 검색 + SDK v2 생성)
-```
-
-각 예제는 시작 시 SDK v2로 에이전트를 만들고, MAF로 실행한 뒤, 끝나면 생성한
-에이전트를 삭제합니다. 출력은 공용 헬퍼 [`src/_streaming.py`](src/_streaming.py)로
-스트리밍 표시합니다.
-
-### MCP·RAG 연동 — 도구/데이터 결합
-
-오케스트레이션(02~04)과 별개로, SDK v2 에이전트도 **외부 도구(MCP)** 와
-**외부 데이터(RAG)** 에 연결할 수 있습니다.
-
-- **05 MCP** — `azure.ai.projects.models.MCPTool`로 **서버 측 MCP 도구**를 붙입니다.
-  Foundry 서비스가 직접 MCP 서버(`https://learn.microsoft.com/api/mcp`)를 호출하므로
-  로컬 함수 호출이 필요 없습니다. 기존 [`src/05_mcp_agent.py`](src/05_mcp_agent.py)의
-  **클라이언트 측** `MCPStreamableHTTPTool`(로컬에서 도구 실행)과 대비됩니다.
-
-  | 구분 | 클라이언트 측(루트 05) | 서버 측(SDK v2 05) |
-  |------|----------------------|--------------------|
-  | 도구 호출 주체 | 로컬 프로세스 | Foundry 서비스 |
-  | 클래스 | `MCPStreamableHTTPTool` | `MCPTool` |
-  | 승인 | 로컬 제어 | `require_approval="never"` |
-
-  > 서버 측 MCP가 막히는 환경(승인 정책·네트워크)에서는 루트 05의 클라이언트 측
-  > 방식으로 폴백하세요.
-
-- **06 RAG** — 검색·증강은 Azure AI Search 하이브리드 검색
-  ([`_rag_search.py`](src/foundry_sdk_v2/_rag_search.py), 루트 06과 동일 로직),
-  **생성 단계만 SDK v2 에이전트**가 담당합니다. 전 과정 키리스로 동작합니다.
-  v2 네이티브 `AzureAISearchTool`(서버 측 검색)은 프로젝트에 Search 연결+인덱스
-  등록이 필요해 이 예제에서는 사용하지 않습니다.
-
-### Application Insights 분산 추적 (트레이싱)
-
-SDK v2 예제는 모두 시작 시 `factory.enable_tracing()`을 호출해 실행 스팬을
-**Azure Monitor(Application Insights)** 로 전송합니다. 추적에는 **세 요소**가 모두
-필요합니다.
-
-1. Application Insights 리소스
-2. Foundry **프로젝트의 `AppInsights` 연결**
-3. `azure-monitor-opentelemetry` 패키지(오버레이에 포함)
-
-```bash
-# 1) Log Analytics 워크스페이스 + Application Insights 생성
-az monitor log-analytics workspace create -g rg-maf-lab -n law-maflab -l eastus2
-LAW_ID=$(az monitor log-analytics workspace show -g rg-maf-lab -n law-maflab --query id -o tsv)
-az monitor app-insights component create --app appi-maflab -g rg-maf-lab -l eastus2 \
-  --workspace "$LAW_ID"
-APPI_ID=$(az monitor app-insights component show --app appi-maflab -g rg-maf-lab --query id -o tsv)
-CONN=$(az monitor app-insights component show --app appi-maflab -g rg-maf-lab \
-  --query connectionString -o tsv)
-
-# 2) Foundry 프로젝트에 AppInsights 연결 생성
-az resource create \
-  --id "/subscriptions/<SUB>/resourceGroups/rg-maf-lab/providers/Microsoft.CognitiveServices/accounts/<ACCOUNT>/projects/<PROJECT>/connections/appinsights" \
-  --api-version 2025-06-01 \
-  --properties "{\"category\":\"AppInsights\",\"target\":\"$APPI_ID\",\"authType\":\"ApiKey\",\"isSharedToAll\":true,\"credentials\":{\"key\":\"$CONN\"},\"metadata\":{\"ApiType\":\"Azure\",\"ResourceId\":\"$APPI_ID\"}}"
-```
-
-`FoundryAgent.configure_azure_monitor()`가 프로젝트의 AppInsights 연결에서 연결
-문자열을 자동으로 가져와 OpenTelemetry를 구성합니다. 짧은 프로세스에서 스팬이
-유실되지 않도록 각 예제는 `finally`에서 `factory.flush_tracing()`을 호출합니다.
-
-- **끄기**: `.env`에 `ENABLE_TRACING=false`를 두면 추적을 건너뜁니다.
-- **연결 미설정 시**: 친절한 경고만 출력하고 예제는 정상 실행됩니다(추적만 비활성).
-- **보기**: Azure Portal의 Application Insights → *Transaction search* / *Logs*
-  (`traces`, `dependencies`)에서 확인합니다. 스팬은 도착까지 **1~2분** 지연될 수
-  있습니다. Foundry 포털의 *Tracing* 탭에서도 볼 수 있습니다.
+>
+> 📄 **자세히 보기**: [`docs/foundry-sdk-v2-orchestration.md`](docs/foundry-sdk-v2-orchestration.md)
 
 ---
 
 ## Part 14. (심화) Hosted Agent 배포 — MAF 에이전트·워크플로우를 관리형으로
 
-Part 13이 **에이전트 "생성"을 SDK v2로** 바꾸는 접근이라면, 이 파트는 코드를
-**그대로 둔 채** MAF 에이전트·워크플로우를 **Microsoft Foundry Hosted Agent**
-(관리형 컨테이너)로 **배포**합니다. SDK v2로 재작성하지 않아도 관리형 인프라와
-**자동 trace/monitoring**을 그대로 얻는 것이 핵심입니다.
+Part 13이 **에이전트 "생성"을 SDK v2로** 바꾸는 접근이라면, 이 파트는 코드를 **그대로 둔 채**
+MAF 에이전트·워크플로우를 **Microsoft Foundry Hosted Agent**(관리형 컨테이너)로 **배포**합니다.
+SDK v2로 재작성하지 않아도 관리형 인프라와 **자동 trace/monitoring**을 그대로 얻는 것이 핵심입니다.
+`ResponsesHostServer` 호스팅 패턴, 6개 예제 목록, `azd` 배포 흐름, 기존 실습과의 차이 등 자세한
+내용은 별도 문서로 분리했습니다.
 
 > 위치: [`src/hosted_agents/`](src/hosted_agents/) · 의존성: `agent-framework-foundry-hosting`
-
-### 핵심 패턴 — `ResponsesHostServer`로 호스팅
-
-```python
-from agent_framework_foundry_hosting import ResponsesHostServer
-
-# 단일 에이전트
-server = ResponsesHostServer(agent)
-server.run()                       # /responses 엔드포인트(:8088), 동기 호출
-
-# 워크플로우 → .as_agent()로 감싸 동일하게 호스팅
-workflow_agent = SequentialBuilder(participants=[...]).build().as_agent()
-server = ResponsesHostServer(workflow_agent)
-server.run()
-```
-
-- 대화 이력은 호스팅 인프라가 관리하므로 각 에이전트에 `default_options={"store": False}`를 지정합니다.
-- 컨테이너에서는 전용 관리 ID로 인증되므로 `DefaultAzureCredential`을 사용합니다.
-
-### 예제 목록
-
-| 폴더 | 원본 | 내용 |
-|------|------|------|
-| [`01_single_agent/`](src/hosted_agents/01_single_agent/) | `src/01_single_agent.py` | 단일 에이전트 호스팅 |
-| [`02_sequential_workflow/`](src/hosted_agents/02_sequential_workflow/) | `src/02_sequential_workflow.py` | 순차 워크플로우(`Workflow.as_agent()`) |
-| [`03_group_chat/`](src/hosted_agents/03_group_chat/) | `src/03_group_chat.py` | GroupChat 워크플로우(`Workflow.as_agent()`) |
-| [`04_concurrent_workflow/`](src/hosted_agents/04_concurrent_workflow/) | `src/04_concurrent_workflow.py` | 동시 워크플로우(`Workflow.as_agent()`) |
-| [`05_mcp_agent/`](src/hosted_agents/05_mcp_agent/) | `src/05_mcp_agent.py` | MCP 도구 연동(서버 측 `get_mcp_tool`) |
-| [`06_rag_agent/`](src/hosted_agents/06_rag_agent/) | `src/06_rag_agent.py` | RAG(하이브리드 검색 함수 도구) |
-
-각 폴더는 독립 배포 가능한 azd 프로젝트로 `main.py`·`Dockerfile`·`agent.yaml`·
-`agent.manifest.yaml` 등을 포함합니다(`agent.manifest.yaml`은 `azd ai agent init`의
-입력, `agent.yaml`은 배포 런타임 스펙).
-
-### 배포 흐름
-
-```bash
-# ① 로컬 테스트용 패키지 설치 (배포 빌드는 각 폴더의 requirements.txt 사용)
-pip install agent-framework-core agent-framework-foundry agent-framework-foundry-hosting mcp
-azd ext install azure.ai.agents && azd auth login
-
-# ② azd ai agent init 은 매니페스트 디렉터리와 분리된 빈 폴더에서 실행해야 합니다.
-#    같은 폴더에서 실행하면 "target is inside the manifest directory" 오류가 납니다.
-MANIFEST=$(pwd)/src/hosted_agents/01_single_agent/agent.manifest.yaml
-mkdir -p ~/deploy/single-agent && cd ~/deploy/single-agent
-azd ai agent init --no-prompt \
-  -m "$MANIFEST" \
-  --agent-name maf-lab-single-agent \
-  --project-id "<Foundry 프로젝트 리소스 ID>" \
-  --model-deployment gpt-5.4 \
-  --deploy-mode code --runtime python_3_13 --entry-point main.py \
-  --protocol responses --force
-
-# ③ 기존 모델 배포를 그대로 사용: azure.yaml의 deployments 블록이 있으면 제거 후 설정
-azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME gpt-5.4
-azd env set AI_AGENT_PENDING_PROVISION ""
-
-# ④ 로컬 테스트
-azd ai agent run                             # 로컬 호스트(:8088) — 블로킹
-azd ai agent invoke --local "질문"            # 별도 터미널에서 실행
-
-# ⑤ 배포
-azd provision --no-prompt                    # (필요 시) 리소스 생성
-azd deploy --no-prompt                       # 코드(ZIP) 빌드 → Foundry 배포 (Docker·ACR 불필요)
-```
-
-배포 후 포털 **Assets → 에이전트 → Traces 탭**에서 단계별 모델 호출을 추적하고,
-Application Insights에서 토큰·비용 메트릭을 확인할 수 있습니다(런타임이
-`APPLICATIONINSIGHTS_CONNECTION_STRING`을 자동 주입).
-
-### 기존 실습과의 차이
-
-| 기존 실습(01~06) | Hosted Agent 실습 |
-|------------------|-------------------|
-| 프롬프트 1건 처리 후 종료 | `/responses` HTTP 서버 상시 구동 |
-| `asyncio.run(main())` | `server.run()` (동기) |
-| `AzureCliCredential` | `DefaultAzureCredential` (컨테이너 관리 ID) |
-| 저장소 `.env`(`PROJECT_ENDPOINT`) | Foundry 주입 env(`FOUNDRY_PROJECT_ENDPOINT`) |
-
-> 💡 **환경변수 이름 차이**: 기존 실습(01~06)은 `PROJECT_ENDPOINT` / `MODEL_DEPLOYMENT_NAME`을 사용하고,
-> Hosted Agent는 Foundry 런타임 표준인 `FOUNDRY_PROJECT_ENDPOINT` / `AZURE_AI_MODEL_DEPLOYMENT_NAME`을 우선 사용합니다.
-> 각 폴더의 `main.py`는 Foundry 표준 변수를 먼저 읽고, 없으면 기존 이름으로 폴백하므로
-> 로컬 테스트 시 루트 `.env`를 그대로 쓸 수 있습니다. 각 폴더의 `.env.example`을 참고하세요.
-
-> ⚠️ Hosted Agents는 현재 **preview**입니다. 코드(ZIP) 배포 모드(권장)는 Docker가 불필요합니다.
-> 컨테이너 모드를 사용하는 경우 `linux/amd64` 이미지가 필요합니다(`--platform linux/amd64`).
-> 자세한 단계는 각 폴더의 `README.md`를 참고하세요.
+>
+> 📄 **자세히 보기**: [`docs/hosted-agent-deployment.md`](docs/hosted-agent-deployment.md)
 
 ---
 
@@ -1128,6 +783,16 @@ Application Insights에서 토큰·비용 메트릭을 확인할 수 있습니�
 > 더 체계적인 진단은 `copilot --agent debugger`를 사용하세요.
 
 ## 부록 B. 참고 자료
+
+### 프로젝트 문서
+
+- [Copilot CLI 가이드](docs/copilot-cli-guide.md) — 설치부터 활용까지
+- [VS Code(IDE) vs Copilot CLI(터미널) 비교](docs/vscode-vs-copilot-cli.md)
+- [GitHub 멀티 계정 설정 가이드](docs/github-multi-account-setup.md) — 개인 계정(Git) + 조직 계정(Copilot) 병행
+- [`.github/` 설정 가이드](docs/github-config-guide.md) · [멀티 에이전트 패턴](docs/custom-agents-guide.md) · [바이브 코딩](docs/vibe-coding-guide.md)
+- [Foundry Agent SDK v2 오케스트레이션](docs/foundry-sdk-v2-orchestration.md) · [Hosted Agent 배포](docs/hosted-agent-deployment.md)
+
+### 외부 링크
 
 - [GitHub Copilot CLI 공식 문서](https://docs.github.com/copilot/concepts/agents/about-copilot-cli)
 - [Microsoft Agent Framework (GitHub)](https://github.com/microsoft/agent-framework)
