@@ -50,8 +50,11 @@
 │   ├── instructions/               # python · azure · korean · git-commit 규칙
 │   ├── prompts/                    # add-agent · review-code (재사용 프롬프트)
 │   ├── agents/                     # orchestrator · planner_executor · debate_critic · generator_evaluator · code_generation · reviewer · debugger
-│   └── skills/
-│       └── agent-framework-codegen/SKILL.md   # MAF 코드 생성 패턴
+│   ├── skills/
+│   │   └── agent-framework-codegen/SKILL.md   # MAF 코드 생성 패턴
+│   └── workflows/
+│       └── smoke.yml               # 예제 스크립트 바이트컴파일 스모크 CI
+├── docs/                           # 심화 가이드 문서 (부록 B 참조)
 └── src/                            # Microsoft Agent Framework 예제
     ├── 01_single_agent.py          # 단일 에이전트
     ├── 02_sequential_workflow.py   # 순차 (분석가→작가→편집자)

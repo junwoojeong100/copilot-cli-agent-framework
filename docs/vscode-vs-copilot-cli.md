@@ -9,7 +9,7 @@ GitHub Copilot은 **VS Code(IDE)**뿐 아니라 **Copilot CLI(터미널)**에서
 
 | 항목 | 🖥️ VS Code (IDE) | 💻 Copilot CLI (터미널) |
 |------|:---:|:---:|
-| **설정 파일 인식** | `copilot-instructions.md`, `instructions/`, `skills/`, `prompts/`, `agents/` | `copilot-instructions.md`, `instructions/`, `skills/` + `AGENTS.md` 등 |
+| **설정 파일 인식** | `copilot-instructions.md`, `instructions/`, `skills/`, `prompts/`, `agents/` | `copilot-instructions.md`, `instructions/`, `skills/`, `agents/` + `AGENTS.md` 등 |
 | **코드 생성** | 에디터 내 인라인 + 채팅 패널 | 터미널에서 직접 파일 생성/수정 |
 | **프롬프트 호출** | `/프롬프트명` (채팅) | 자연어로 직접 요청 |
 | **에이전트 호출** | `@에이전트명` (채팅) | `/agent`로 선택 |
