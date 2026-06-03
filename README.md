@@ -30,6 +30,7 @@
 - [Part 14. (심화) Hosted Agent 배포 — MAF 에이전트·워크플로우를 관리형으로](#part-14-심화-hosted-agent-배포--maf-에이전트워크플로우를-관리형으로)
 - [부록 A. 트러블슈팅](#부록-a-트러블슈팅)
 - [부록 B. 참고 자료](#부록-b-참고-자료)
+  - 프로젝트 문서: [Copilot CLI 가이드](docs/copilot-cli-guide.md) · [VS Code vs Copilot CLI](docs/vscode-vs-copilot-cli.md) · [GitHub 멀티 계정 설정](docs/github-multi-account-setup.md) · [`.github/` 설정](docs/github-config-guide.md) · [멀티 에이전트 패턴](docs/custom-agents-guide.md) · [바이브 코딩](docs/vibe-coding-guide.md) · [Foundry SDK v2 오케스트레이션](docs/foundry-sdk-v2-orchestration.md) · [Hosted Agent 배포](docs/hosted-agent-deployment.md)
 
 ---
 
@@ -133,7 +134,7 @@
 | **GitHub Copilot 구독** | Copilot CLI/Chat | <https://github.com/features/copilot> |
 | **GitHub Copilot CLI** | 터미널 AI 에이전트 | `npm install -g @github/copilot` (설치 방법 상세는 [Part 2](#part-2-copilot-cli-시작하기)) |
 | **Node.js 22+** | Copilot CLI 런타임 + Azure MCP 서버(`npx`) | <https://nodejs.org> |
-| **Python 3.10+** | Agent Framework 코드 | <https://python.org> |
+| **Python 3.12+** | Agent Framework 코드 (이 랩은 3.12 기준으로 검증) | <https://python.org> |
 | **Azure CLI 2.81.0+** | Foundry 인증 + Azure MCP 서버 자격증명 | `az upgrade --yes` |
 | **GitHub PAT** | GitHub MCP 서버 인증 (`github` 블록 사용 시 필수, 미사용 시 선택) | <https://github.com/settings/tokens> |
 
@@ -256,6 +257,20 @@ AZURE_OPENAI_API_VERSION=2024-10-21
 # ENABLE_TRACING=true
 ```
 
+### 1.4 리소스 정리 (실습 종료 후)
+
+실습이 끝나면 **불필요한 비용을 막기 위해** 생성한 리소스를 정리하세요. 리소스 그룹을
+통째로 삭제하면 Foundry·모델 배포·Search 서비스가 한 번에 제거됩니다.
+
+```bash
+# 1.2에서 만든 리소스 그룹을 통째로 삭제 (되돌릴 수 없음)
+az group delete -n $RG --yes --no-wait
+```
+
+> ⚠️ `--no-wait`는 삭제 요청만 보내고 즉시 반환합니다. 진행 상황은
+> `az group show -n $RG` 가 `NotFound`를 반환할 때까지 확인하세요.
+> 심화 실습(Part 14)에서 만든 Hosted Agent가 있다면, 해당 문서의 정리 절차도 함께 수행하세요.
+
 ---
 
 ## Part 2. Copilot CLI 시작하기
@@ -349,6 +364,19 @@ print()
 python src/01_single_agent.py
 ```
 
+**기대 출력(예시)** — 응답 본문은 모델에 따라 달라지지만, 골격과 종료 표시는 동일합니다.
+
+```text
+=== 단일 에이전트 실행 ===
+
+질문: Microsoft Agent Framework가 무엇인가요?
+
+Microsoft Agent Framework는 ... (모델이 생성한 한국어 설명이 토큰 단위로 스트리밍됨) ...
+
+=== 실행 완료 ===
+```
+
+
 | 요소 | 설명 |
 |------|------|
 | `FoundryChatClient` | Azure AI Foundry 프로젝트에 연결하는 채팅 클라이언트 |
@@ -389,6 +417,21 @@ for output in result.get_outputs():
 python src/02_sequential_workflow.py
 ```
 
+**기대 출력(예시)** — 분석가 → 작가 → 편집자 순서로 파이프라인이 진행됩니다.
+
+```text
+=== 순차 워크플로우 실행 ===
+
+입력 주제: Kubernetes 클러스터 비용 최적화 전략
+==================================================
+
+[순차 파이프라인 결과]
+... (분석가의 분석 → 작가의 초안 → 편집자의 최종본이 순서대로 출력됨) ...
+
+=== 실행 완료 ===
+```
+
+
 ---
 
 ## Part 6. GroupChat 워크플로우
@@ -428,6 +471,21 @@ result = await workflow.run("모바일 앱 신규 기능: AI 기반 개인화 �
 python src/03_group_chat.py
 ```
 
+**기대 출력(예시)** — 여러 에이전트가 라운드를 돌며 토론한 뒤 합의에 도달합니다.
+
+```text
+=== GroupChat 워크플로우 실행 ===
+
+주제: 모바일 앱 신규 기능 기획: AI 기반 개인화 추천 시스템을 도입하려고 합니다.
+==================================================
+
+[GroupChat 토론 결과]
+... (참여 에이전트들이 번갈아 발언하며 의견을 교환하고 결론을 정리함) ...
+
+=== 실행 완료 ===
+```
+
+
 ---
 
 ## Part 7. 동시(Concurrent) 워크플로우
@@ -458,6 +516,21 @@ for output in result.get_outputs():
 ```bash
 python src/04_concurrent_workflow.py
 ```
+
+**기대 출력(예시)** — 여러 전문가 에이전트가 같은 설계안을 병렬로 검토합니다.
+
+```text
+=== 동시 워크플로우 실행 ===
+
+검토 대상 설계안: 신규 모바일 앱에 로그인 없이 게스트 결제를 허용하고, 추천 데이터를 단말에 캐시하는 설계안을 검토해 주세요.
+==================================================
+
+[동시 리뷰 결과]
+... (보안·성능·UX 등 관점별 검토 의견이 각각 출력됨) ...
+
+=== 실행 완료 ===
+```
+
 
 > ✅ **체크포인트**: Single → Sequential → GroupChat → Concurrent 4가지 패턴의 차이와
 > 선택 기준을 설명할 수 있으면 Agent Framework 핵심을 익힌 것입니다.
@@ -516,6 +589,19 @@ async with learn_mcp:
 python src/05_mcp_agent.py
 ```
 
+**기대 출력(예시)** — 에이전트가 Microsoft Learn MCP 서버를 호출해 근거와 함께 답합니다.
+
+```text
+=== MCP 도구 연동 에이전트 실행 ===
+
+질문: Microsoft Agent Framework에서 여러 에이전트를 협업시키는 Handoff 방식이 무엇인지 공식 문서를 근거로 설명해줘.
+
+... (에이전트가 MCP 도구로 문서를 조회한 뒤 한국어로 설명하며 [출처]를 포함) ...
+
+=== 실행 완료 ===
+```
+
+
 > ✅ **체크포인트**: 에이전트가 답변에 `[출처]`를 포함하면 MCP 도구 호출이 성공한 것입니다.
 
 ---
@@ -569,6 +655,39 @@ result = await agent.run(augmented_prompt)
 ```bash
 python src/06_rag_agent.py
 ```
+
+**기대 출력(예시)** — 5단계(임베딩 → 인덱스 → 업로드 → 하이브리드 검색 → 생성)가 순서대로
+진행됩니다. 검색 점수·응답 문구는 환경에 따라 달라질 수 있습니다.
+
+```text
+=== RAG 에이전트 (Azure AI Search) 실행 ===
+
+[1단계] 임베딩 클라이언트 준비 및 차원 확인...
+  → 임베딩 차원: 3072
+
+[2단계] Azure AI Search 인덱스 확인/생성...
+  → 기존 인덱스 사용: maf-lab-knowledge-v1
+
+[3단계] 지식 베이스 임베딩 및 업로드...
+  → 문서 4건 임베딩·업로드 완료
+
+[4단계] 하이브리드 검색 — 질문: Pro 요금제는 얼마이고 기술 지원은 얼마나 빨리 받을 수 있나요?
+  → 검색된 문서:
+     - 구독 요금제 (doc-2, score=0.033)
+     - 기술 지원 SLA (doc-3, score=0.033)
+
+[5단계] 에이전트가 답변 생성 중...
+
+에이전트 응답:
+Pro 요금제는 월 29,900원입니다. 기술 지원은 우선 기술 지원이 제공되며, 24시간 이내
+1차 응답을 보장받습니다. [출처: 구독 요금제, 기술 지원 SLA]
+
+=== 실행 완료 ===
+```
+
+> ℹ️ 첫 실행 시 `[2단계]`는 `인덱스 생성 완료 ...`로, 인덱스가 이미 있으면 `기존 인덱스 사용 ...`으로
+> 출력됩니다. 실행 시 `ExperimentalWarning`이 함께 표시될 수 있으나 동작에는 영향이 없습니다.
+
 
 > ℹ️ `VectorizedQuery`의 후보 수 인자는 SDK 버전에 따라 이름이 다릅니다. 이 랩의
 > `azure-search-documents==11.7.0b2`는 `k`(안정 버전은 `k_nearest_neighbors`)를 사용합니다.
