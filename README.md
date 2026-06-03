@@ -133,7 +133,7 @@
 | **GitHub Copilot 구독** | Copilot CLI/Chat | <https://github.com/features/copilot> |
 | **GitHub Copilot CLI** | 터미널 AI 에이전트 | `npm install -g @github/copilot` (설치 방법 상세는 [Part 2](#part-2-copilot-cli-시작하기)) |
 | **Node.js 22+** | Copilot CLI 런타임 + Azure MCP 서버(`npx`) | <https://nodejs.org> |
-| **Python 3.10+** | Agent Framework 코드 | <https://python.org> |
+| **Python 3.12+** | Agent Framework 코드 (이 랩은 3.12 기준으로 검증) | <https://python.org> |
 | **Azure CLI 2.81.0+** | Foundry 인증 + Azure MCP 서버 자격증명 | `az upgrade --yes` |
 | **GitHub PAT** | GitHub MCP 서버 인증 (`github` 블록 사용 시 필수, 미사용 시 선택) | <https://github.com/settings/tokens> |
 
@@ -255,6 +255,20 @@ AZURE_OPENAI_API_VERSION=2024-10-21
 # (심화) Foundry Agent SDK v2 — Application Insights 추적 (기본값: true, Part 13 참조)
 # ENABLE_TRACING=true
 ```
+
+### 1.4 리소스 정리 (실습 종료 후)
+
+실습이 끝나면 **불필요한 비용을 막기 위해** 생성한 리소스를 정리하세요. 리소스 그룹을
+통째로 삭제하면 Foundry·모델 배포·Search 서비스가 한 번에 제거됩니다.
+
+```bash
+# 1.2에서 만든 리소스 그룹을 통째로 삭제 (되돌릴 수 없음)
+az group delete -n $RG --yes --no-wait
+```
+
+> ⚠️ `--no-wait`는 삭제 요청만 보내고 즉시 반환합니다. 진행 상황은
+> `az group show -n $RG` 가 `NotFound`를 반환할 때까지 확인하세요.
+> 심화 실습(Part 14)에서 만든 Hosted Agent가 있다면, 해당 문서의 정리 절차도 함께 수행하세요.
 
 ---
 
