@@ -54,16 +54,29 @@ server.run()             # 동기 호출
 azd ext install azure.ai.agents
 azd auth login
 
-# 매니페스트로 azd 프로젝트 초기화 (빈 폴더에서)
-azd ai agent init -m ./agent.manifest.yaml
+# 매니페스트로 azd 프로젝트 초기화 (빈 폴더에서 실행)
+mkdir -p ~/deploy/sequential-workflow && cd ~/deploy/sequential-workflow
+REPO="/path/to/copilot-cli-agent-framework"
+azd ai agent init --no-prompt \
+  -m "$REPO/src/hosted_agents/02_sequential_workflow/agent.manifest.yaml" \
+  --agent-name maf-lab-sequential-workflow \
+  --project-id "<Foundry 프로젝트 리소스 ID>" \
+  --model-deployment gpt-5.4 \
+  --deploy-mode code --runtime python_3_13 --entry-point main.py \
+  --protocol responses --force
 
 export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
 export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4"
 
-# 로컬 호스트 실행 (http://localhost:8088)
+# 배포 시 기존 모델 배포를 그대로 사용하려면 init이 만든 azure.yaml의
+# deployments 블록을 제거하고 azd 환경값을 고정합니다.
+azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME "$AZURE_AI_MODEL_DEPLOYMENT_NAME"
+azd env set AI_AGENT_PENDING_PROVISION ""
+
+# 터미널 1: 로컬 호스트 실행 (http://localhost:8088, 블로킹)
 azd ai agent run
 
-# 호출 테스트
+# 터미널 2: 다른 터미널에서 호출 테스트
 azd ai agent invoke --local "Kubernetes 클러스터 비용 최적화 전략"
 #  또는
 curl -X POST http://localhost:8088/responses \
@@ -74,8 +87,8 @@ curl -X POST http://localhost:8088/responses \
 ## Foundry에 배포
 
 ```bash
-azd provision   # (Foundry 프로젝트가 없을 때) 리소스 생성
-azd deploy      # 컨테이너 빌드 → ACR push → Foundry Agent Service 배포
+azd provision --no-prompt   # (필요 시) 리소스 생성
+azd deploy --no-prompt      # 코드 ZIP 원격 빌드 → Foundry Agent Service 배포
 ```
 
 ## 관리형 trace / monitoring
@@ -84,4 +97,6 @@ azd deploy      # 컨테이너 빌드 → ACR push → Foundry Agent Service 배
 각 단계의 모델 호출을 추적할 수 있고, Application Insights에서 토큰·비용
 메트릭을 확인할 수 있습니다(런타임이 연결 문자열을 자동 주입).
 
-> Hosted Agents는 현재 **preview**이며, `linux/amd64` 이미지를 요구합니다.
+> Hosted Agents는 현재 **preview**입니다. 권장 코드 ZIP 배포 모드는 로컬 Docker가
+> 필요 없습니다. 컨테이너 배포 모드를 선택하는 경우에만 `linux/amd64` 이미지가
+> 필요합니다.
