@@ -13,7 +13,8 @@ description: "Microsoft Agent Framework SDK를 사용한 AI 에이전트·워크
 ## 1. SDK Import 경로
 
 ```python
-from agent_framework import Agent, MCPStreamableHTTPTool   # MCP 도구 연동(7절)
+from agent_framework import Agent, MCPStreamableHTTPTool   # MCP 도구 연동(8절)
+from agent_framework import WorkflowBuilder, Case, Default  # 조건부 라우팅 그래프(7절)
 from agent_framework.foundry import FoundryChatClient
 from agent_framework.orchestrations import (
     SequentialBuilder,   # 순차(Sequential) 워크플로우
@@ -27,6 +28,7 @@ from azure.identity import AzureCliCredential
 
 > **주의**: 핵심 클래스(`Agent`), Foundry 연동(`agent_framework.foundry`), 오케스트레이션
 > (`agent_framework.orchestrations`)은 서로 다른 서브모듈이다. 경로를 혼동하지 않는다.
+> `WorkflowBuilder`·`Case`·`Default`는 `agent_framework` 최상위에서 임포트한다.
 
 ---
 
@@ -184,11 +186,57 @@ print(final)
 ```
 
 - 라우팅 함수는 이전 에이전트의 출력 텍스트를 파싱해 다음 경로를 결정한다.
-- 더 복잡한 조건 분기가 필요하면 `if/elif/else` 또는 딕셔너리 디스패치로 라우팅 로직을 확장한다.
+- 더 복잡한 조건 분기가 필요하면 아래 7절의 `WorkflowBuilder`로 전환한다.
 
 ---
 
-## 7. MCP 도구 연동 (외부 시스템 호출)
+## 7. WorkflowBuilder — 조건부 라우팅 그래프
+
+`SequentialBuilder`·`ConcurrentBuilder`처럼 선언적이지만, **조건부 분기(switch-case)** 와
+**팬아웃/팬인**이 필요한 복잡한 흐름에 사용한다. `Agent`를 직접 노드로 쓸 수 있다.
+
+```python
+from agent_framework import WorkflowBuilder, Case, Default
+
+# 에이전트를 노드로 직접 전달 (자동 래핑)
+workflow = (
+    WorkflowBuilder(start_executor=analyzer_agent)    # 시작 노드
+    .add_switch_case_edge_group(
+        analyzer_agent,
+        [
+            # 분석 결과에 "기술" 포함 → 기술 작가로 라우팅
+            Case(condition=lambda msg: "기술" in str(msg), target=tech_writer_agent),
+            # 그 외 → 일반 작가 (Default는 조건 없이 나머지 처리)
+            Default(target=general_writer_agent),
+        ],
+    )
+    .add_edge(tech_writer_agent, editor_agent)       # 기술 작가 → 편집자
+    .add_edge(general_writer_agent, editor_agent)    # 일반 작가 → 편집자
+    .build()
+)
+result = await workflow.run("Kubernetes 비용 최적화 전략")
+for output in result.get_outputs():
+    print(output)
+```
+
+| 메서드 | 용도 |
+|--------|------|
+| `WorkflowBuilder(start_executor=...)` | 빌더 생성 (시작 노드 지정, 키워드 인자) |
+| `.add_edge(source, target)` | 단순 순차 엣지 (조건 없이 항상 통과) |
+| `.add_switch_case_edge_group(source, [Case..., Default])` | 조건부 분기 — 조건 순서대로 평가, 첫 일치 노드로 전달 |
+| `.add_fan_out_edges(source, [target1, target2])` | 팬아웃 — 같은 메시지를 여러 노드에 병렬 전송 |
+| `Case(condition=lambda msg: ..., target=agent)` | 조건 분기 케이스. `condition`은 `(msg) -> bool` |
+| `Default(target=agent)` | 모든 `Case` 불일치 시 수신하는 기본 케이스 |
+| `.build()` | `Workflow` 객체 생성 |
+
+> **선택 기준**:
+> - **단순 순차(A→B→C)**: `SequentialBuilder` 사용 (더 간결)
+> - **조건부 분기 / 팬아웃 / 복잡한 그래프**: `WorkflowBuilder` 사용
+> - **Python 제어 흐름으로 충분한 경우**: 6절의 `if/else` 패턴 사용
+
+---
+
+## 8. MCP 도구 연동 (외부 시스템 호출)
 
 에이전트가 외부 MCP 서버의 도구를 런타임에 호출하게 한다. `tools=` 인자로 전달한다.
 
@@ -226,7 +274,7 @@ async with learn_mcp:
 
 ---
 
-## 8. RAG (검색 증강 생성)
+## 9. RAG (검색 증강 생성)
 
 질문 관련 문서를 먼저 검색해 컨텍스트로 주입한 뒤 답하게 한다: 검색 → 증강 → 생성.
 
@@ -248,7 +296,7 @@ result = await agent.run(augmented)          # 3) 생성
 
 ---
 
-## 9. 트러블슈팅
+## 10. 트러블슈팅
 
 | 증상 | 원인 / 해결 |
 |------|-------------|
@@ -259,6 +307,7 @@ result = await agent.run(augmented)          # 3) 생성
 | Handoff `build()`가 `ValueError`(persistence) | 일부 Agent에 `require_per_service_call_history_persistence=True` 누락 — 모든 참여 Agent에 지정 |
 | GroupChat이 끝나지 않음 | `max_rounds` 미설정 |
 | GroupChat 결과가 종료 메시지만 나옴 | `get_outputs()`는 종료 메시지만 반환 — 토론 내용은 이벤트의 `AgentExecutorResponse`에서 추출 |
+| `WorkflowBuilder` `Case` 조건이 항상 첫 케이스로만 분기됨 | 조건은 **순서대로 평가**되며 첫 번째 `True`에서 멈춤 — 조건 순서를 좁은 것부터 배치할 것 |
 | MCP 도구를 호출하지 않음 | `tools=` 전달 누락, 또는 `async with mcp_tool:` 밖에서 실행 |
 | RAG가 엉뚱한 답을 함 | 검색 결과가 빈약하거나 "문서 밖 추측 금지" 지시문 누락 |
 | `ImportError: agent_framework...` | `pip install -U agent-framework`, 가상환경 활성화 확인 |
