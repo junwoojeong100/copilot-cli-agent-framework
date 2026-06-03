@@ -22,5 +22,5 @@ resources:
   # 모델 배포가 없을 때 azd provision이 만들 모델입니다.
   # 이미 배포한 모델 이름으로 바꾸세요(이 저장소 기본값은 gpt-5.4).
   - kind: model
-    id: gpt-4.1
+    id: gpt-5.4
     name: AZURE_AI_MODEL_DEPLOYMENT_NAME

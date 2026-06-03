@@ -82,16 +82,17 @@ azd auth login                      # azd 자체 로그인(az login과 별개)
 
 ```bash
 mkdir -p ~/deploy/single && cd ~/deploy/single
+REPO="/path/to/copilot-cli-agent-framework"
 
 # 1) 기존 프로젝트에 코드(ZIP) 배포 모드로 초기화
 azd ai agent init --no-prompt \
-  -m <repo>/src/hosted_agents/01_single_agent/agent.manifest.yaml \
+  -m "$REPO/src/hosted_agents/01_single_agent/agent.manifest.yaml" \
   --agent-name maf-lab-single-agent \
   --project-id "<Foundry 프로젝트 리소스 ID>" \
+  --model-deployment gpt-5.4 \
   --deploy-mode code --runtime python_3_13 --entry-point main.py \
   --protocol responses --force
 
-cd maf-lab-single-agent
 # 2) (선택) 기존 모델 배포를 그대로 사용: azure.yaml의 deployments 블록 제거 후
 azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME gpt-5.4
 azd env set AI_AGENT_PENDING_PROVISION ""

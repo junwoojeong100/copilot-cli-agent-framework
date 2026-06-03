@@ -32,19 +32,35 @@ server.run()
 
 ```bash
 azd ext install azure.ai.agents && azd auth login
-azd ai agent init -m ./agent.manifest.yaml
+mkdir -p ~/deploy/concurrent-workflow && cd ~/deploy/concurrent-workflow
+REPO="/path/to/copilot-cli-agent-framework"
+azd ai agent init --no-prompt \
+  -m "$REPO/src/hosted_agents/04_concurrent_workflow/agent.manifest.yaml" \
+  --agent-name maf-lab-concurrent-workflow \
+  --project-id "<Foundry 프로젝트 리소스 ID>" \
+  --model-deployment gpt-5.4 \
+  --deploy-mode code --runtime python_3_13 --entry-point main.py \
+  --protocol responses --force
 
 export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
 export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4"
 
-azd ai agent run                                   # 로컬 호스트(:8088)
-azd ai agent invoke --local "게스트 결제 + 단말 캐시 설계안을 검토해줘"
+# 배포 시 기존 모델 배포를 그대로 사용하려면 init이 만든 azure.yaml의
+# deployments 블록을 제거하고 azd 환경값을 고정합니다.
+azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME "$AZURE_AI_MODEL_DEPLOYMENT_NAME"
+azd env set AI_AGENT_PENDING_PROVISION ""
 
-azd provision   # (필요 시) 리소스 생성
-azd deploy      # Foundry에 배포
+azd ai agent run                                   # 터미널 1: 로컬 호스트(:8088, 블로킹)
+azd ai agent invoke --local "게스트 결제 + 단말 캐시 설계안을 검토해줘"  # 터미널 2
+
+# 배포는 로컬 서버를 중지한 뒤 실행합니다.
+azd provision --no-prompt   # (필요 시) 리소스 생성
+azd deploy --no-prompt      # 코드 ZIP 원격 빌드 → Foundry에 배포
 ```
 
 배포 후 포털 **Assets → 에이전트 → Traces 탭**에서 병렬 리뷰 각각의 모델
 호출을 추적할 수 있습니다.
 
-> Hosted Agents는 현재 **preview**이며 `linux/amd64` 이미지를 요구합니다.
+> Hosted Agents는 현재 **preview**입니다. 권장 코드 ZIP 배포 모드는 로컬 Docker가
+> 필요 없습니다. 컨테이너 배포 모드를 선택하는 경우에만 `linux/amd64` 이미지가
+> 필요합니다.
