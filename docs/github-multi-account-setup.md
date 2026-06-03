@@ -8,8 +8,8 @@
 
 | 용도 | 계정 | 활성 상태 |
 |------|------|-----------|
-| Git push/pull, GitHub CLI | `junwoojeong100` | Active |
-| GitHub Copilot | `junwoojeong_microsoft` | Inactive |
+| Git push/pull, GitHub CLI | `<git-account>` | Active |
+| GitHub Copilot | `<copilot-account>` | Inactive |
 
 두 계정 모두 `gh auth login`으로 등록하되, **active 계정**만 Git 작업에 사용되고 Copilot은 별도의 inactive 계정 토큰을 사용한다.
 
@@ -35,10 +35,10 @@ gh auth status
 
 ```
 github.com
-  ✓ Logged in to github.com account junwoojeong100 (keyring)
+  ✓ Logged in to github.com account <git-account> (keyring)
   - Active account: true
 
-  ✓ Logged in to github.com account junwoojeong_microsoft (keyring)
+  ✓ Logged in to github.com account <copilot-account> (keyring)
   - Active account: false
 ```
 
@@ -49,7 +49,7 @@ github.com
 Git 작업에 사용할 계정을 active로 설정한다:
 
 ```bash
-gh auth switch --user junwoojeong100
+gh auth switch --user <git-account>
 ```
 
 결과로 `~/.config/gh/hosts.yml`이 다음과 같이 설정된다:
@@ -58,9 +58,9 @@ gh auth switch --user junwoojeong100
 github.com:
     git_protocol: https
     users:
-        junwoojeong100:
-        junwoojeong_microsoft:
-    user: junwoojeong100    # ← active 계정
+        <git-account>:
+        <copilot-account>:
+    user: <git-account>    # ← active 계정
 ```
 
 ---
@@ -73,17 +73,18 @@ Git이 push/pull 시 `gh`의 토큰을 자동으로 사용하도록 credential h
 
 ```bash
 mkdir -p ~/.config/git
-cat > ~/.config/git/credential-helper-junwoojeong100.sh << 'EOF'
+cat > ~/.config/git/credential-helper.sh << 'EOF'
 #!/bin/bash
-TOKEN=$(gh auth token --user junwoojeong100 2>/dev/null)
+# <git-account>를 실제 계정명으로 교체하세요
+TOKEN=$(gh auth token --user <git-account> 2>/dev/null)
 if [ -n "$TOKEN" ]; then
     echo "protocol=https"
     echo "host=github.com"
-    echo "username=junwoojeong100"
+    echo "username=<git-account>"
     echo "password=$TOKEN"
 fi
 EOF
-chmod +x ~/.config/git/credential-helper-junwoojeong100.sh
+chmod +x ~/.config/git/credential-helper.sh
 ```
 
 ### 3-2. 글로벌 Git 설정에 등록
@@ -91,7 +92,7 @@ chmod +x ~/.config/git/credential-helper-junwoojeong100.sh
 ```bash
 # 기존 credential helper 초기화 후 커스텀 helper 등록
 git config --global credential.helper ""
-git config --global --add credential.helper '!~/.config/git/credential-helper-junwoojeong100.sh'
+git config --global --add credential.helper '!~/.config/git/credential-helper.sh'
 ```
 
 결과로 `~/.gitconfig`에 다음이 추가된다:
@@ -99,7 +100,7 @@ git config --global --add credential.helper '!~/.config/git/credential-helper-ju
 ```ini
 [credential]
     helper = ""
-    helper = !~/.config/git/credential-helper-junwoojeong100.sh
+    helper = !~/.config/git/credential-helper.sh
 ```
 
 > **참고:** `helper = ""`를 먼저 설정하여 macOS Keychain 등 기본 credential helper를 비활성화한다.
@@ -109,8 +110,8 @@ git config --global --add credential.helper '!~/.config/git/credential-helper-ju
 ## 4단계: Git 사용자 정보 설정
 
 ```bash
-git config --global user.name "junwoojeong100"
-git config --global user.email "junwoojeong100@gmail.com"
+git config --global user.name "<git-account>"
+git config --global user.email "<your-email>"
 ```
 
 ---
@@ -121,7 +122,7 @@ git config --global user.email "junwoojeong100@gmail.com"
 |------|------|
 | `~/.config/gh/hosts.yml` | gh CLI 멀티 계정 관리 (active/inactive) |
 | `~/.config/gh/config.yml` | gh CLI 전역 설정 (protocol, editor 등) |
-| `~/.config/git/credential-helper-junwoojeong100.sh` | Git에 junwoojeong100 토큰 제공 |
+| `~/.config/git/credential-helper.sh` | Git에 `<git-account>` 토큰 제공 |
 | `~/.gitconfig` | 글로벌 Git 설정 (user, credential helper) |
 
 ---
@@ -133,20 +134,20 @@ git config --global user.email "junwoojeong100@gmail.com"
 gh auth status
 
 # 활성 계정 전환
-gh auth switch --user junwoojeong_microsoft
+gh auth switch --user <copilot-account>
 
 # 특정 계정의 토큰 확인
-gh auth token --user junwoojeong100
+gh auth token --user <git-account>
 
 # credential helper 동작 테스트
-echo "protocol=https\nhost=github.com" | git credential fill
+printf 'protocol=https\nhost=github.com\n\n' | git credential fill
 ```
 
 ---
 
 ## 주의 사항
 
-1. **Copilot 인증은 자동**: `junwoojeong_microsoft`가 inactive여도 Copilot은 해당 계정의 토큰을 독립적으로 사용한다.
+1. **Copilot 인증은 자동**: `<copilot-account>`가 inactive여도 Copilot은 해당 계정의 토큰을 독립적으로 사용한다.
 2. **토큰 갱신**: `gh auth refresh --user <account>`로 만료된 토큰을 갱신할 수 있다.
 3. **리포별 계정 분리가 필요한 경우**: 특정 리포에서 다른 계정을 쓰려면 로컬 `.git/config`에 별도 credential helper를 설정한다.
 4. **SSH를 사용하는 경우**: 이 가이드는 HTTPS 기반이다. SSH를 쓸 때는 `~/.ssh/config`에 Host alias를 설정하는 방식을 사용한다.
