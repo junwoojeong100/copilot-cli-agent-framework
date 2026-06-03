@@ -28,7 +28,8 @@
 - [Part 12. 가드레일 (AGENTS.md)](#part-12-가드레일-agentsmd)
 - [Part 13. (심화) Foundry Agent SDK v2 + MAF 오케스트레이션](#part-13-심화-foundry-agent-sdk-v2--maf-오케스트레이션)
 - [Part 14. (심화) Hosted Agent 배포 — MAF 에이전트·워크플로우를 관리형으로](#part-14-심화-hosted-agent-배포--maf-에이전트워크플로우를-관리형으로)
-- [부록 A. 트러블슈팅 / 부록 B. 참고 자료](#부록-a-트러블슈팅)
+- [부록 A. 트러블슈팅](#부록-a-트러블슈팅)
+- [부록 B. 참고 자료](#부록-b-참고-자료)
 
 ---
 
@@ -130,7 +131,7 @@
 | 도구 | 용도 | 설치 |
 |------|------|------|
 | **GitHub Copilot 구독** | Copilot CLI/Chat | <https://github.com/features/copilot> |
-| **GitHub Copilot CLI** | 터미널 AI 에이전트 | `brew install copilot-cli` / `winget install GitHub.Copilot` |
+| **GitHub Copilot CLI** | 터미널 AI 에이전트 | `npm install -g @github/copilot` (설치 방법 상세는 [Part 2](#part-2-copilot-cli-시작하기)) |
 | **Node.js 22+** | Copilot CLI 런타임 + Azure MCP 서버(`npx`) | <https://nodejs.org> |
 | **Python 3.10+** | Agent Framework 코드 | <https://python.org> |
 | **Azure CLI 2.81.0+** | Foundry 인증 + Azure MCP 서버 자격증명 | `az upgrade --yes` |
@@ -166,7 +167,9 @@ az cognitiveservices account project create \
 # (선택) 배포 가능한 모델·버전 확인
 az cognitiveservices account list-models -n $FOUNDRY -g $RG -o table
 
-# 3) 채팅 모델 배포 (실습 1~6) — 리전에서 사용 가능한 버전으로 변경
+# 3) 채팅 모델 배포 (실습 1~6)
+#    --model-version은 예시 값입니다. 위 list-models 출력에서 리전에 실제 존재하는
+#    버전으로 바꾸세요(존재하지 않는 버전이면 배포가 실패합니다).
 az cognitiveservices account deployment create \
   -n $FOUNDRY -g $RG \
   --deployment-name gpt-5.4 \
@@ -301,9 +304,13 @@ Copilot CLI/Chat는 작업 디렉토리의 `.github/` 설정과 `AGENTS.md`를 �
 │   ├── add-agent.prompt.md
 │   └── review-code.prompt.md
 ├── agents/                   # 커스텀 에이전트 (copilot --agent <name>)
-│   ├── orchestrator.agent.md
-│   ├── reviewer.agent.md
-│   └── debugger.agent.md
+│   ├── orchestrator.agent.md       # 오케스트레이터 — 패턴 자동 선택
+│   ├── planner_executor.agent.md   # 계획-실행 패턴
+│   ├── debate_critic.agent.md      # 토론-비평 패턴
+│   ├── generator_evaluator.agent.md # 생성-평가 패턴
+│   ├── code_generation.agent.md    # 코드 생성 패턴
+│   ├── reviewer.agent.md           # 코드 리뷰 (읽기 전용)
+│   └── debugger.agent.md           # 환경/런타임 진단
 └── skills/
     └── agent-framework-codegen/SKILL.md   # MAF 코드 생성 패턴 주입
 ```
@@ -1073,6 +1080,11 @@ Application Insights에서 토큰·비용 메트릭을 확인할 수 있습니�
 | `asyncio.run(main())` | `server.run()` (동기) |
 | `AzureCliCredential` | `DefaultAzureCredential` (컨테이너 관리 ID) |
 | 저장소 `.env`(`PROJECT_ENDPOINT`) | Foundry 주입 env(`FOUNDRY_PROJECT_ENDPOINT`) |
+
+> 💡 **환경변수 이름 차이**: 기존 실습(01~06)은 `PROJECT_ENDPOINT` / `MODEL_DEPLOYMENT_NAME`을 사용하고,
+> Hosted Agent는 Foundry 런타임 표준인 `FOUNDRY_PROJECT_ENDPOINT` / `AZURE_AI_MODEL_DEPLOYMENT_NAME`을 우선 사용합니다.
+> 각 폴더의 `main.py`는 Foundry 표준 변수를 먼저 읽고, 없으면 기존 이름으로 폴백하므로
+> 로컬 테스트 시 루트 `.env`를 그대로 쓸 수 있습니다. 각 폴더의 `.env.example`을 참고하세요.
 
 > ⚠️ Hosted Agents는 현재 **preview**입니다. 코드(ZIP) 배포 모드(권장)는 Docker가 불필요합니다.
 > 컨테이너 모드를 사용하는 경우 `linux/amd64` 이미지가 필요합니다(`--platform linux/amd64`).
