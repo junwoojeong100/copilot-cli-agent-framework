@@ -172,12 +172,12 @@ az cognitiveservices account project create \
 az cognitiveservices account list-models -n $FOUNDRY -g $RG -o table
 
 # 3) 채팅 모델 배포 (실습 1~6)
-#    --model-version은 예시 값입니다. 위 list-models 출력에서 리전에 실제 존재하는
-#    버전으로 바꾸세요(존재하지 않는 버전이면 배포가 실패합니다).
+#    ⚠️  --model-version은 반드시 위 list-models 출력에서 확인한 실제 버전으로 바꾸세요.
+#       아래 <version>은 placeholder입니다. 그대로 실행하면 배포가 실패합니다.
 az cognitiveservices account deployment create \
   -n $FOUNDRY -g $RG \
   --deployment-name gpt-5.4 \
-  --model-name gpt-5.4 --model-version 2026-03-05 --model-format OpenAI \
+  --model-name gpt-5.4 --model-version <version> --model-format OpenAI \
   --sku-name GlobalStandard --sku-capacity 10
 
 # 4) 임베딩 모델 배포 (실습 6 RAG 전용)
@@ -605,7 +605,7 @@ python src/05_mcp_agent.py
 ```
 
 
-> ✅ **체크포인트**: 에이전트가 답변에 `[출처]`를 포함하면 MCP 도구 호출이 성공한 것입니다.
+> ✅ **체크포인트**: 에이전트가 MCP 도구를 호출해 출처나 참고 문서를 언급하면 MCP 도구 호출이 성공한 것입니다. 응답 형식은 모델에 따라 달라질 수 있습니다.
 
 ---
 

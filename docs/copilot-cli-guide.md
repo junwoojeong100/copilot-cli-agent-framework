@@ -96,8 +96,8 @@ wget -qO- https://gh.io/copilot-install | bash
 루트 권한으로 설치하려면 `| sudo bash`를 사용합니다. 설치 경로를 변경하려면 `PREFIX` 환경변수를 지정합니다.
 
 ```bash
-# 특정 버전을 커스텀 경로에 설치
-curl -fsSL https://gh.io/copilot-install | VERSION="v0.0.369" PREFIX="$HOME/custom" bash
+# 특정 버전을 커스텀 경로에 설치 (버전은 /changelog 또는 GitHub 릴리스에서 확인)
+curl -fsSL https://gh.io/copilot-install | VERSION="<desired-version>" PREFIX="$HOME/custom" bash
 ```
 
 ### Homebrew (macOS / Linux)
@@ -169,13 +169,13 @@ export GITHUB_TOKEN="your-token-here"
 
 ### 모델 선택
 
-기본 모델은 **Claude Sonnet 4.5**입니다. 다른 모델을 선택하려면:
+기본 모델은 CLI 버전과 환경에 따라 달라질 수 있습니다. 현재 선택된 모델과 사용 가능한 목록을 확인하려면:
 
 ```
 /model
 ```
 
-Claude Sonnet 4, GPT-5 등 사용 가능한 모델 목록에서 선택할 수 있습니다.
+Claude Sonnet, Claude Opus, GPT-5 등 다양한 모델 목록에서 선택할 수 있습니다.
 
 ### 모드 전환
 
@@ -258,6 +258,8 @@ copilot --agent orchestrator --yolo --experimental
 
 ## 슬래시 커맨드 레퍼런스
 
+> 💡 아래는 자주 쓰는 주요 커맨드 목록입니다. 전체 커맨드 목록은 CLI 내에서 `/help`로 확인하세요.
+
 ### 에이전트 환경
 
 | 커맨드 | 설명 |
@@ -266,6 +268,7 @@ copilot --agent orchestrator --yolo --experimental
 | `/agent` | 사용 가능한 에이전트 탐색·선택 |
 | `/skills` | 스킬 관리 (Azure 등 확장 기능) |
 | `/mcp` | MCP 서버 설정 관리 |
+| `/env` | 현재 세션에 로드된 전체 환경 확인 (인스트럭션·MCP 서버·스킬·에이전트 등) |
 | `/plugin` | 플러그인 및 마켓플레이스 관리 |
 
 ### 모델 및 서브에이전트
@@ -355,8 +358,10 @@ copilot --agent orchestrator --yolo
 | `debate_critic` | 대립적 논증을 통한 최선의 결론 도출 |
 | `generator_evaluator` | 생성 → 평가 → 개선 반복 패턴 |
 | `code_generation` | 설계 → 구현 → 리뷰 통합 패턴 |
+| `reviewer` | 코드 리뷰 전문 에이전트 (읽기 전용) |
+| `debugger` | 환경 설정·Azure 연결·런타임 오류 진단 |
 
-> 에이전트 패턴의 상세 설명은 [README.md](../README.md#에이전트-패턴)를 참고하세요.
+> 에이전트 패턴의 상세 설명은 [`docs/custom-agents-guide.md`](custom-agents-guide.md)를 참고하세요.
 
 ### `/agent` 슬래시 커맨드
 
