@@ -30,61 +30,12 @@ async def main():
 
     # ── 1단계: Foundry Chat 클라이언트 설정 ──
     project_endpoint = os.getenv("PROJECT_ENDPOINT")
-    model = os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-5.4")
+    model = os.getenv("MODEL_DEPLOYMENT_NAME") or "gpt-5.4"
 
     if not project_endpoint:
         print("오류: PROJECT_ENDPOINT 환경 변수를 설정해주세요.")
         sys.exit(1)
 
-    client = FoundryChatClient(
-        project_endpoint=project_endpoint,
-        model=model,
-        credential=AzureCliCredential(),
-    )
-
-    # ── 2단계: 관점별 리뷰어 에이전트 생성 ──
-    # 각 에이전트는 같은 입력을 서로 다른 관점에서 평가합니다
-
-    # 보안 리뷰어 - 보안 위험과 완화 방안을 평가합니다
-    security_agent = Agent(
-        client=client,
-        name="보안 리뷰어",
-        instructions=(
-            "당신은 보안 검토 전문가입니다. "
-            "설계안의 보안 위험과 완화 방안을 핵심만 짚어 평가합니다. "
-            "한국어로 작성합니다."
-        ),
-    )
-
-    # 성능 리뷰어 - 성능 병목과 확장성을 평가합니다
-    performance_agent = Agent(
-        client=client,
-        name="성능 리뷰어",
-        instructions=(
-            "당신은 성능 검토 전문가입니다. "
-            "설계안의 성능 병목과 확장성 개선점을 핵심만 짚어 평가합니다. "
-            "한국어로 작성합니다."
-        ),
-    )
-
-    # UX 리뷰어 - 사용성과 접근성을 평가합니다
-    ux_agent = Agent(
-        client=client,
-        name="UX 리뷰어",
-        instructions=(
-            "당신은 UX 검토 전문가입니다. "
-            "설계안의 사용성과 접근성 관점 개선점을 핵심만 짚어 평가합니다. "
-            "한국어로 작성합니다."
-        ),
-    )
-
-    # ── 3단계: 동시 워크플로우 구성 ──
-    # ConcurrentBuilder가 모든 참여자에게 같은 입력을 병렬로 전달합니다
-    workflow = ConcurrentBuilder(
-        participants=[security_agent, performance_agent, ux_agent]
-    ).build()
-
-    # ── 4단계: 워크플로우 실행 ──
     design = (
         "신규 모바일 앱에 로그인 없이 게스트 결제를 허용하고, "
         "추천 데이터를 단말에 캐시하는 설계안을 검토해 주세요."
@@ -93,7 +44,54 @@ async def main():
     print("=" * 50)
 
     try:
-        # ── 5단계: 동시 리뷰 결과 스트리밍 출력 ──
+        # ── 2단계: 관점별 리뷰어 에이전트 생성 ──
+        # 각 에이전트는 같은 입력을 서로 다른 관점에서 평가합니다
+        client = FoundryChatClient(
+            project_endpoint=project_endpoint,
+            model=model,
+            credential=AzureCliCredential(),
+        )
+
+        # 보안 리뷰어 - 보안 위험과 완화 방안을 평가합니다
+        security_agent = Agent(
+            client=client,
+            name="보안 리뷰어",
+            instructions=(
+                "당신은 보안 검토 전문가입니다. "
+                "설계안의 보안 위험과 완화 방안을 핵심만 짚어 평가합니다. "
+                "한국어로 작성합니다."
+            ),
+        )
+
+        # 성능 리뷰어 - 성능 병목과 확장성을 평가합니다
+        performance_agent = Agent(
+            client=client,
+            name="성능 리뷰어",
+            instructions=(
+                "당신은 성능 검토 전문가입니다. "
+                "설계안의 성능 병목과 확장성 개선점을 핵심만 짚어 평가합니다. "
+                "한국어로 작성합니다."
+            ),
+        )
+
+        # UX 리뷰어 - 사용성과 접근성을 평가합니다
+        ux_agent = Agent(
+            client=client,
+            name="UX 리뷰어",
+            instructions=(
+                "당신은 UX 검토 전문가입니다. "
+                "설계안의 사용성과 접근성 관점 개선점을 핵심만 짚어 평가합니다. "
+                "한국어로 작성합니다."
+            ),
+        )
+
+        # ── 3단계: 동시 워크플로우 구성 ──
+        # ConcurrentBuilder가 모든 참여자에게 같은 입력을 병렬로 전달합니다
+        workflow = ConcurrentBuilder(
+            participants=[security_agent, performance_agent, ux_agent]
+        ).build()
+
+        # ── 4단계: 동시 리뷰 결과 스트리밍 출력 ──
         print("\n[동시 리뷰 결과]")
         await stream_workflow(workflow, design)
 
