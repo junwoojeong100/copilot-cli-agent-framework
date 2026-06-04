@@ -28,18 +28,25 @@ async def main():
     # ── 1단계: Foundry Chat 클라이언트 설정 ──
     # 환경 변수에서 프로젝트 엔드포인트와 모델 이름을 가져옵니다
     project_endpoint = os.getenv("PROJECT_ENDPOINT")
-    model = os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-5.4")
+    model = os.getenv("MODEL_DEPLOYMENT_NAME")
 
     if not project_endpoint:
         print("오류: PROJECT_ENDPOINT 환경 변수를 설정해주세요.")
         sys.exit(1)
+    if not model:
+        print("오류: MODEL_DEPLOYMENT_NAME 환경 변수를 설정해주세요.")
+        sys.exit(1)
 
     # FoundryChatClient는 Azure AI Foundry 프로젝트에 연결합니다
-    client = FoundryChatClient(
-        project_endpoint=project_endpoint,
-        model=model,
-        credential=AzureCliCredential(),
-    )
+    try:
+        client = FoundryChatClient(
+            project_endpoint=project_endpoint,
+            model=model,
+            credential=AzureCliCredential(),
+        )
+    except Exception as e:
+        print(f"오류: Azure 클라이언트 초기화에 실패했습니다. `az login` 상태를 확인해주세요.\n상세: {e}")
+        sys.exit(1)
 
     # ── 2단계: 에이전트 생성 ──
     # 에이전트에게 역할과 지시사항을 부여합니다
