@@ -4,10 +4,18 @@
 과정을 콘솔에서 바로 확인할 수 있게 합니다. 모든 예제(01~06)가 공유합니다.
 """
 
+from typing import Any
+
 from agent_framework import AgentExecutorResponse, AgentResponseUpdate
 
 
-async def stream_agent(agent, prompt, *, label="에이전트 응답", **run_kwargs):
+async def stream_agent(
+    agent: Any,
+    prompt: str,
+    *,
+    label: str | None = "에이전트 응답",
+    **run_kwargs: Any,
+) -> str:
     """에이전트 응답을 토큰 단위로 출력하고, 누적된 전체 텍스트를 반환합니다.
 
     Args:
@@ -31,12 +39,17 @@ async def stream_agent(agent, prompt, *, label="에이전트 응답", **run_kwar
     return "".join(chunks)
 
 
-def _is_orchestrator(speaker) -> bool:
+def _is_orchestrator(speaker: str | None) -> bool:
     """발화자 id가 내부 오케스트레이터(중계/종료용)인지 판별합니다."""
     return bool(speaker) and "orchestrator" in speaker
 
 
-async def stream_workflow(workflow, message, *, name_map=None):
+async def stream_workflow(
+    workflow: Any,
+    message: str,
+    *,
+    name_map: dict[str, str] | None = None,
+) -> Any:
     """워크플로우를 스트리밍 실행하며 발화자별 응답을 실시간 출력합니다.
 
     오케스트레이션 종류에 따라 이벤트 형태가 다릅니다.

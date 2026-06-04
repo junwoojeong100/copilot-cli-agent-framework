@@ -18,7 +18,6 @@
 import asyncio
 import os
 import sys
-import time
 
 from dotenv import load_dotenv
 
@@ -27,6 +26,7 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 from agent_framework import Agent
 from agent_framework.foundry import FoundryChatClient
+from azure.core.credentials import TokenCredential
 from azure.identity import AzureCliCredential, get_bearer_token_provider
 from azure.search.documents import SearchClient
 from azure.search.documents.indexes import SearchIndexClient
@@ -91,7 +91,7 @@ KNOWLEDGE_BASE = [
 ]
 
 
-def make_embedder(endpoint: str, deployment: str, api_version: str, credential):
+def make_embedder(endpoint: str, deployment: str, api_version: str, credential: TokenCredential):
     """Azure OpenAI 임베딩 호출 함수를 생성합니다 (키리스 AAD 인증).
 
     Args:
@@ -163,7 +163,7 @@ def ensure_index(index_client: SearchIndexClient, index_name: str, dim: int) -> 
     print(f"  → 인덱스 생성 완료: {index_name} (벡터 차원 {dim}, 코사인)")
 
 
-def seed_documents(search_client: SearchClient, embed) -> None:
+async def seed_documents(search_client: SearchClient, embed) -> None:
     """지식 베이스 문서를 임베딩하여 인덱스에 업로드합니다 (멱등 upsert).
 
     문서가 4건뿐이라 매 실행 시 새로 임베딩하여 덮어씁니다(내용 변경 자동 반영).
@@ -190,12 +190,14 @@ def seed_documents(search_client: SearchClient, embed) -> None:
     if failed:
         raise RuntimeError(f"문서 업로드 실패: {[r.key for r in failed]}")
 
-    # 인덱싱 반영 대기 (최대 30초)
+    # 인덱싱 반영 대기 (최대 30초).
+    # embed/merge_or_upload/get_document_count는 동기 Azure SDK 호출이며,
+    # sleep만 비동기화하여 이벤트 루프 블로킹을 최소화합니다.
     target = len(KNOWLEDGE_BASE)
     for _ in range(30):
         if search_client.get_document_count() >= target:
             break
-        time.sleep(1)
+        await asyncio.sleep(1)
     print(f"  → 문서 {target}건 임베딩·업로드 완료")
 
 
@@ -253,11 +255,11 @@ async def main():
 
     # ── 1단계: 환경 변수 확인 ──
     project_endpoint = os.getenv("PROJECT_ENDPOINT")
-    model = os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-5.4")
+    model = os.getenv("MODEL_DEPLOYMENT_NAME") or "gpt-5.4"
     search_endpoint = os.getenv("SEARCH_SERVICE_ENDPOINT")
     index_name = os.getenv("SEARCH_INDEX_NAME", "maf-lab-knowledge-v1")
     aoai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-    embedding_deployment = os.getenv("EMBEDDING_DEPLOYMENT_NAME", "text-embedding-3-large")
+    embedding_deployment = os.getenv("EMBEDDING_DEPLOYMENT_NAME") or "text-embedding-3-large"
     aoai_api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-10-21")
 
     if not project_endpoint:
@@ -290,7 +292,7 @@ async def main():
         # ── 4단계: 문서 임베딩 및 업로드 ──
         print("\n[3단계] 지식 베이스 임베딩 및 업로드...")
         search_client = SearchClient(endpoint=search_endpoint, index_name=index_name, credential=credential)
-        seed_documents(search_client, embed)
+        await seed_documents(search_client, embed)
 
         # ── 5단계: 검색(Retrieval) ──
         question = "Pro 요금제는 얼마이고 기술 지원은 얼마나 빨리 받을 수 있나요?"

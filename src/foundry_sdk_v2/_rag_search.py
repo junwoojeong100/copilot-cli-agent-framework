@@ -6,6 +6,12 @@
 
 생성(Generation) 단계만 Foundry Agent SDK v2 에이전트로 바뀌고, 검색·증강 로직은
 기존 예제와 동일합니다. 인증은 전부 키리스(AzureCliCredential / Entra ID)입니다.
+
+.. note::
+    코드 중복 동기화 주의:
+    ``make_embedder``, ``ensure_index``, ``seed_documents``, ``retrieve``,
+    ``build_context`` 함수의 로직을 변경할 때는 ``src/06_rag_agent.py``와
+    이 파일을 함께 수정하여 두 구현이 일치하도록 유지하세요.
 """
 
 import time

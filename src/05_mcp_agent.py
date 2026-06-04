@@ -33,32 +33,12 @@ async def main():
 
     # ── 1단계: Foundry Chat 클라이언트 설정 ──
     project_endpoint = os.getenv("PROJECT_ENDPOINT")
-    model = os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-5.4")
+    model = os.getenv("MODEL_DEPLOYMENT_NAME") or "gpt-5.4"
 
     if not project_endpoint:
         print("오류: PROJECT_ENDPOINT 환경 변수를 설정해주세요.")
         sys.exit(1)
 
-    client = FoundryChatClient(
-        project_endpoint=project_endpoint,
-        model=model,
-        credential=AzureCliCredential(),
-    )
-
-    # ── 2단계: MCP 도구 정의 ──
-    # MCPStreamableHTTPTool은 HTTP(SSE) 기반 MCP 서버에 연결합니다.
-    # Microsoft Learn MCP는 공개 서버라 별도 인증 헤더가 필요 없습니다.
-    # 인증이 필요한 서버라면 headers={"Authorization": "Bearer ..."}를 추가합니다.
-    learn_mcp = MCPStreamableHTTPTool(
-        name="MicrosoftLearn",
-        url="https://learn.microsoft.com/api/mcp",
-        description="Microsoft/Azure 공식 문서·코드 샘플 검색 도구",
-    )
-
-    # ── 3단계: MCP 서버에 연결한 상태에서 에이전트 실행 ──
-    # async with 블록 안에서만 MCP 세션이 활성화됩니다.
-    # 블록에 들어가면 connect()로 서버의 도구 목록을 불러오고,
-    # 블록을 나가면 close()로 연결을 정리합니다.
     question = (
         "Microsoft Agent Framework에서 여러 에이전트를 협업시키는 "
         "Handoff 방식이 무엇인지 공식 문서를 근거로 설명해줘."
@@ -66,6 +46,26 @@ async def main():
     print(f"질문: {question}\n")
 
     try:
+        client = FoundryChatClient(
+            project_endpoint=project_endpoint,
+            model=model,
+            credential=AzureCliCredential(),
+        )
+
+        # ── 2단계: MCP 도구 정의 ──
+        # MCPStreamableHTTPTool은 HTTP(SSE) 기반 MCP 서버에 연결합니다.
+        # Microsoft Learn MCP는 공개 서버라 별도 인증 헤더가 필요 없습니다.
+        # 인증이 필요한 서버라면 headers={"Authorization": "Bearer ..."}를 추가합니다.
+        learn_mcp = MCPStreamableHTTPTool(
+            name="MicrosoftLearn",
+            url="https://learn.microsoft.com/api/mcp",
+            description="Microsoft/Azure 공식 문서·코드 샘플 검색 도구",
+        )
+
+        # ── 3단계: MCP 서버에 연결한 상태에서 에이전트 실행 ──
+        # async with 블록 안에서만 MCP 세션이 활성화됩니다.
+        # 블록에 들어가면 connect()로 서버의 도구 목록을 불러오고,
+        # 블록을 나가면 close()로 연결을 정리합니다.
         async with learn_mcp:
             # tools= 인자로 MCP 도구를 에이전트에 연결합니다.
             # 에이전트(LLM)는 필요하다고 판단하면 스스로 검색 도구를 호출합니다.
