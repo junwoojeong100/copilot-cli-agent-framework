@@ -22,12 +22,14 @@
 > 실행(= Azure·Python 필요)하는 것은 선택**이며, CLI 학습 자체에는 필요하지 않습니다. 실행까지 해보고
 > 싶다면 [Microsoft Agent Framework 핸즈온 랩](../README.md)의 사전 준비를 따르세요.
 
-## 핵심 개념
+## 핵심 개념 — Copilot CLI를 조종하는 요소
 
-이 랩에서 쓰는 구성요소(Copilot CLI · Custom Agent · Skill · Instructions)의 "무엇인가 · 왜 쓰는가"는
-개념 문서로 분리했습니다. 처음이라면 아래 문서를 먼저 훑어보세요.
-
-> 📄 [**Copilot CLI 핵심 개념 — 구성요소**](copilot-cli-concepts.md)
+| 기술 | 무엇인가 | 핵심 기능 | 장점 |
+|------|----------|-----------|------|
+| **GitHub Copilot CLI** | 터미널에서 동작하는 에이전틱 코딩 도구 | 자연어 지시 → 계획·실행·검증 루프, 슬래시 커맨드(`/plan`·`/fleet`·`/model`), MCP·커스텀 에이전트 확장 | IDE 없이 터미널·CI에서 동작, 명령 실행 전 승인으로 안전, 모델 자유 선택 |
+| **Custom Agent**<br/>(`.github/agents/*.agent.md`) | 역할·도구가 제한된 전용 에이전트 | frontmatter로 `description`·`tools`·`model` 지정, `copilot --agent <name>` 실행 | 역할 격리(리뷰어=읽기전용)로 안전·집중, 재사용·팀 공유 |
+| **Skill**<br/>(`.github/skills/*/SKILL.md`) | Copilot에 주입하는 전문 지식·패턴 묶음 | `description`으로 트리거, 필요 시에만 본문 로드(점진적 공개) | 정확한 SDK 호출 유도, 토큰 절약, 환각 감소 |
+| **Instructions**<br/>(`.github/*instructions.md`) | 항상/조건부로 적용되는 규칙 | `copilot-instructions.md`(전역) + `instructions/*`(`applyTo` 글롭) | 일관된 스타일·규칙 자동 준수, 반복 지시 제거 |
 
 ## 목차
 
@@ -61,12 +63,13 @@ copilot
 /pr        # PR 생성/관리
 ```
 
-특성·구성요소 개념은 [Copilot CLI 핵심 개념](copilot-cli-concepts.md)으로 분리했습니다.
+특성: **에이전트 코딩**(계획→실행→검증), **안전 실행**(명령 실행 전 승인, 신뢰 환경에서만 `--yolo`),
+**MCP 확장**(외부 시스템을 도구로 연결), **커스텀 에이전트**(`copilot --agent <name>`).
 
 > 💡 이 실습에서는 Copilot CLI에게 "이런 에이전트를 만들어줘"라고 지시하고, 생성된 코드를
 > 검토·실행합니다. `src/`의 예제는 그 결과물의 완성본입니다.
 >
-> 📄 **자세히 보기**: [Copilot CLI 핵심 개념](copilot-cli-concepts.md) · [Copilot CLI 가이드](copilot-cli-guide.md) — 설치부터 활용까지 ·
+> 📄 **더 알아보기(선택)**: [Copilot CLI 가이드](copilot-cli-guide.md) — 설치·인증·슬래시 커맨드 전체 레퍼런스 ·
 > [VS Code(IDE) vs CLI 비교](vscode-vs-copilot-cli.md)
 
 ---
@@ -74,10 +77,31 @@ copilot
 ## Part 2. Copilot을 "조종"하는 `.github/` 설정
 
 Copilot CLI/Chat는 작업 디렉토리의 `.github/` 설정과 `AGENTS.md`를 읽어 **동작 방식을 바꿉니다.**
-지침(instructions)·에이전트(agents)·스킬(skills)·프롬프트(prompts) 구성과 각 구성요소의 역할,
-`SKILL.md`·`*.agent.md` 구조에 대한 자세한 설명은 별도 문서로 분리했습니다.
+이 저장소의 구성은 다음과 같습니다.
 
-> 📄 **자세히 보기**: [`docs/github-config-guide.md`](github-config-guide.md)
+```text
+.github/
+├── copilot-instructions.md   # 전역 페르소나·코딩 스타일·프로젝트 규칙
+├── instructions/             # 경로/언어별 세부 규칙 (applyTo 글롭)
+│   ├── python.instructions.md
+│   ├── azure.instructions.md
+│   ├── korean.instructions.md
+│   └── git-commit.instructions.md
+├── prompts/                  # 재사용 프롬프트 (VS Code Chat에서 /프롬프트명)
+├── agents/                   # 커스텀 에이전트 (copilot --agent <name>)
+└── skills/                   # SDK 사용법·패턴 주입 (SKILL.md)
+```
+
+| 구성요소 | 역할 |
+|----------|------|
+| `copilot-instructions.md` | 프로젝트 전반에 항상 적용되는 규칙 |
+| `instructions/*` | `applyTo` 글롭으로 특정 파일/언어에만 적용되는 규칙 |
+| `prompts/*` | 반복 작업 템플릿. **VS Code Chat**에서 `/프롬프트명` 호출(CLI는 자연어로 동일 요청) |
+| `agents/*` | `copilot --agent`로 실행하는 역할별 에이전트 |
+| `skills/*` | SDK 사용법·패턴을 Copilot에 "교육"하는 전문 지식 |
+
+> 📄 **더 알아보기(선택)**: `SKILL.md`·`*.agent.md` frontmatter 구조, 파일 유형별 동작·재사용 범위는
+> [`.github/` 설정 가이드](github-config-guide.md)를 참고하세요.
 
 ---
 
@@ -89,21 +113,69 @@ Copilot CLI/Chat는 작업 디렉토리의 `.github/` 설정과 `AGENTS.md`를 �
 
 `.github/agents/`에 역할별 에이전트를 정의하고 `copilot --agent <name>`으로 실행합니다.
 이 저장소에는 **7개** 에이전트(오케스트레이터 + 4가지 협업 패턴 + reviewer·debugger)가 포함되어
-있습니다. `orchestrator`는 요청을 분석해 4가지 협업 패턴(📐 Planner-Executor, ⚔️ Debate & Critic,
-⚡ Generator-Evaluator, 🏗️ Code Generation) 중 하나를 자동 선택해 위임합니다.
+있습니다.
 
-각 에이전트의 실행 명령, 오케스트레이터 라우팅 규칙, 패턴별 팀 구성·협업 흐름·비교표 등 자세한
-설명은 별도 문서로 분리했습니다.
+```bash
+# 오케스트레이터 — 요청 분석 후 최적 패턴 자동 선택
+copilot --agent orchestrator --yolo
 
-> 📄 **자세히 보기**: [`docs/custom-agents-guide.md`](custom-agents-guide.md)
+# 4가지 협업 패턴 에이전트 직접 실행
+copilot --agent planner_executor --yolo    # 📐 계획-실행 패턴
+copilot --agent debate_critic --yolo       # ⚔️ 토론-비평 패턴
+copilot --agent generator_evaluator --yolo # ⚡ 생성-평가 패턴
+copilot --agent code_generation --yolo     # 🏗️ 코드 생성 패턴
+
+# 단독 전문 에이전트
+copilot --agent reviewer                   # 코드 리뷰 (읽기 전용)
+copilot --agent debugger                   # 환경/런타임 문제 진단
+```
+
+`orchestrator`는 요청을 분석해 4가지 협업 패턴 중 하나를 선택해 위임합니다:
+
+| 사용자 의도 | 선택 패턴 |
+|------------|----------|
+| "구현해줘", "셋업해줘", "마이그레이션" | 📐 Planner-Executor |
+| "비교해줘", "장단점", "뭐가 나을까" | ⚔️ Debate & Critic |
+| "생성해줘", "리뷰해줘", "개선해줘" | ⚡ Generator-Evaluator |
+| "설계하고 구현해줘", "코드 작성하고 리뷰해줘" | 🏗️ Code Generation |
+
+> 📄 **더 알아보기(선택)**: 패턴별 팀 구성·협업 흐름·비교표는
+> [멀티 에이전트 패턴 가이드](custom-agents-guide.md)를 참고하세요.
 
 ### 에이전트에게 줄 도구 — MCP 서버 연결
 
 `.copilot/mcp-config.json`로 MCP 서버를 Copilot CLI에 붙입니다. 이 저장소에는 **Azure · GitHub ·
-Microsoft Learn** 세 가지 서버가 설정되어 있습니다. 서버별 구성·인증·권한 등 자세한 개념은 별도
-문서로 분리했습니다.
+Microsoft Learn** 세 가지 서버가 설정되어 있습니다.
 
-> 📄 **자세히 보기**: [MCP 서버 연결 — 개념과 구성](mcp-servers-guide.md)
+```json
+{
+  "mcpServers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": { "Authorization": "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}" },
+      "tools": ["*"]
+    },
+    "azure": {
+      "type": "local",
+      "command": "npx",
+      "args": ["-y", "@azure/mcp@latest", "server", "start"],
+      "tools": ["*"]
+    },
+    "microsoftLearn": {
+      "type": "http",
+      "url": "https://learn.microsoft.com/api/mcp",
+      "tools": ["*"]
+    }
+  }
+}
+```
+
+| 서버 | 유형 | 용도 | 인증 |
+|------|------|------|------|
+| **github** | 원격(http) | 이슈·PR·리포지토리 탐색/조작 | PAT — `GITHUB_PERSONAL_ACCESS_TOKEN` 환경변수 |
+| **azure** | 로컬(npx) | 구독 내 Azure 리소스 조회·관리 (Foundry 포함) | `az login` 세션 |
+| **microsoftLearn** | 원격(http) | Microsoft/Azure 공식 문서·코드 샘플 검색 | 불필요 |
 
 설정 적용 및 확인:
 
@@ -122,8 +194,18 @@ copilot
 ```
 
 > 💡 위 1)·2)는 **모두 선택**입니다. PAT·Azure 없이도 `microsoftLearn`(인증 불필요) 서버만으로
-> 이 Part의 흐름을 따라갈 수 있습니다. (인증·권한 주의사항은
-> [MCP 서버 연결 가이드](mcp-servers-guide.md)를 참고하세요.)
+> 이 Part의 흐름을 따라갈 수 있습니다.
+>
+> 참고: Copilot CLI는 GitHub MCP 서버를 기본 내장하고 있어, 위 `github` 항목 없이도 기본 GitHub
+> 기능은 사용할 수 있습니다. **단, `github` 블록을 유지하면 `GITHUB_PERSONAL_ACCESS_TOKEN`이 반드시
+> 설정되어 있어야 인증 오류가 나지 않습니다.** PAT를 쓰지 않으려면 이 블록을 제거하고 기본 내장
+> 서버를 사용하세요. `tools`는 `["*"]`로 모든 도구를 허용하므로, 읽기 전용만 노출하려면 서버 문서의
+> 도구명으로 좁히세요.
+
+> ⚠️ **Azure MCP 권한 주의**: `azure` 서버는 `tools: ["*"]`이므로 구독 리소스를 **조회뿐 아니라
+> 변경/삭제**할 수 있습니다. 실제 가능한 작업은 `az login` 계정의 **RBAC 권한** 범위로 제한되며,
+> Copilot CLI는 실행 전 명령을 확인받습니다. 조회만 허용하려면 `tools`를 읽기 전용 도구명으로
+> 좁히거나, 읽기 권한만 가진 계정으로 `az login` 하세요.
 
 > **실습**: `copilot --agent orchestrator --yolo`를 띄우고
 > *"Microsoft Learn에서 Agent Framework Concurrent 오케스트레이션 문서를 찾아 동시 워크플로우에
@@ -134,9 +216,17 @@ copilot
 ## Part 4. 바이브 코딩 — 설정만으로 코드 생성하기
 
 **바이브 코딩**은 코드를 손으로 쓰는 대신, `.github/`의 instructions·prompts·skills로 의도를
-정의하고 Copilot이 코드를 생성하게 하는 방식입니다. 개념·구성요소별 역할은 개념 문서로 분리했습니다.
+정의하고 Copilot이 코드를 생성하게 하는 방식입니다.
 
-> 📄 **자세히 보기**: [바이브 코딩 — 설정만으로 코드 생성하기](vibe-coding-guide.md)
+| 개발자가 준비 | Copilot이 수행 |
+|---------------|----------------|
+| `instructions/` — 기술 스택·코딩 규칙 | 규칙을 지킨 코드 생성 |
+| `prompts/` — 반복 작업 템플릿 | 일관된 산출물 생성 |
+| `skills/` — SDK 사용법·패턴 | 정확한 SDK 호출 |
+| `agents/` — 리뷰/디버그 역할 | 자동 리뷰·디버깅 |
+
+> 📄 **더 알아보기(선택)**: CLI 바이브 코딩 워크플로우 흐름도·재사용 팁은
+> [바이브 코딩 가이드](vibe-coding-guide.md)를 참고하세요.
 
 ### 실습 흐름 (Azure 없이 진행)
 
@@ -194,4 +284,4 @@ git push --force-with-lease origin <branch>     # force push
 
 > 📄 메인 실습으로 돌아가기: [README](../README.md)
 >
-> **개념·이론 문서**: [Copilot CLI 핵심 개념](copilot-cli-concepts.md) · [`.github/` 설정](github-config-guide.md) · [멀티 에이전트 패턴](custom-agents-guide.md) · [MCP 서버 연결](mcp-servers-guide.md) · [바이브 코딩](vibe-coding-guide.md) · [Copilot CLI 가이드](copilot-cli-guide.md) · [VS Code vs CLI](vscode-vs-copilot-cli.md) · [GitHub 멀티 계정 설정](github-multi-account-setup.md)
+> **더 알아보기(선택, 심화)**: [Copilot CLI 가이드](copilot-cli-guide.md) · [`.github/` 설정](github-config-guide.md) · [멀티 에이전트 패턴](custom-agents-guide.md) · [바이브 코딩](vibe-coding-guide.md) · [VS Code vs CLI](vscode-vs-copilot-cli.md) · [GitHub 멀티 계정 설정](github-multi-account-setup.md)
