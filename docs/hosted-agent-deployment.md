@@ -74,12 +74,103 @@ azd ai agent invoke --local "질문"            # 별도 터미널에서 실행
 
 # ⑤ 배포
 azd provision --no-prompt                    # (필요 시) 리소스 생성
-azd deploy --no-prompt                       # 코드(ZIP) 빌드 → Foundry 배포 (Docker·ACR 불필요)
+azd deploy --no-prompt                       # 소스를 ZIP으로 업로드 → 클라우드에서 빌드·호스팅
 ```
+
+### 코드(ZIP) 배포 모드 이해하기
+
+`--deploy-mode code`(권장)는 **로컬 Docker 없이** 소스 폴더를 `.zip`으로 압축해 업로드하면
+Foundry가 클라우드에서 빌드·호스팅하는 방식입니다(이미지·ACR 불필요). 의존성 처리 방식은
+두 가지입니다.
+
+| 모드 | 동작 | 언제 |
+|------|------|------|
+| **remote_build**(기본·권장) | 업로드한 `requirements.txt`를 **클라우드에서 설치** | 업로드 용량이 작고 가장 단순한 첫 배포 |
+| **bundled** | 미리 빌드한 Linux 의존성을 `packages/`에 담아 **그대로 실행** | 재현 가능 빌드·사설 휠 등 서버 빌드가 어려운 경우 |
+
+> 💡 `azd deploy`가 ZIP 패키징을 자동으로 처리하므로 직접 압축할 필요는 없습니다. 이 저장소 예제는
+> `requirements.txt`만 두는 **remote_build** 방식이라 추가 준비가 없습니다. (`agent-framework`
+> 메타패키지 대신 하위 패키지만 명시하는 이유는 각 폴더 `requirements.txt` 주석을 참고하세요.)
 
 배포 후 포털 **Assets → 에이전트 → Traces 탭**에서 단계별 모델 호출을 추적하고,
 Application Insights에서 토큰·비용 메트릭을 확인할 수 있습니다(런타임이
 `APPLICATIONINSIGHTS_CONNECTION_STRING`을 자동 주입).
+
+## 배포된 에이전트 원격 호출·테스트
+
+배포가 끝나면 `azd deploy` 출력에 **포털 플레이그라운드 링크**와 **전용 에이전트 엔드포인트**
+(`.../api/projects/<project>/agents/<name>/versions/<n>`)가 표시됩니다. 다음 방법으로 원격
+에이전트(단일·워크플로우 공통)를 호출·검증합니다.
+
+### 1) azd로 상태 확인 → 호출 → 로그 스트리밍
+
+```bash
+# 상태 확인 — "Active"가 되어야 호출 가능
+azd ai agent show
+
+# 원격 호출 — --local 을 빼면 배포된 엔드포인트로 전송됩니다
+azd ai agent invoke "Microsoft Agent Framework가 무엇인가요?"
+
+# (선택) 컨테이너 로그·트레이스 실시간 확인
+azd ai agent monitor --follow
+```
+
+### 2) REST로 직접 호출 (언어 무관·CI 연동)
+
+전용 엔드포인트에 Entra 토큰을 실어 호출합니다. 워크플로우 예제도 동일한 `/responses`
+프로토콜로 호출됩니다.
+
+```bash
+BASE_URL="https://<account>.services.ai.azure.com/api/projects/<project>"
+API_VERSION="v1"
+TOKEN=$(az account get-access-token --resource https://ai.azure.com --query accessToken -o tsv)
+
+curl -X POST "$BASE_URL/agents/maf-lab-single-agent/endpoint/protocols/openai/responses?api-version=$API_VERSION" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"input": "Microsoft Agent Framework가 무엇인가요?", "store": false}'
+```
+
+> 💡 요청 본문에 `"stream": true`를 추가하면 서버-전송 이벤트(SSE)로 토큰을 스트리밍받습니다.
+> 컨테이너 안의 호출 신원은 **에이전트 전용 관리 ID**이며, 호출하는 사용자/서비스는 해당 Foundry
+> 프로젝트에 대한 호출 권한이 필요합니다.
+
+### 3) 포털 플레이그라운드
+
+[Foundry 포털](https://ai.azure.com) → **Build → Agents → 해당 에이전트 → Open in playground**
+에서 UI로 바로 대화하며 테스트할 수 있습니다.
+
+## (대안) 컨테이너 방식으로 배포
+
+코드(ZIP) 모드 대신 **직접 빌드한 컨테이너 이미지**로 배포할 수도 있습니다. 각 폴더의
+`Dockerfile`(`python:3.13-slim` 기반, 포트 `8088` 노출)이 이 용도로 포함되어 있습니다.
+
+```bash
+# init 시 배포 모드를 container로 지정 (그 외 인자는 코드 모드와 동일, $MANIFEST는 위와 동일)
+azd ai agent init --no-prompt \
+  -m "$MANIFEST" \
+  --agent-name maf-lab-single-agent \
+  --project-id "<Foundry 프로젝트 리소스 ID>" \
+  --model-deployment gpt-5.4 \
+  --deploy-mode container --entry-point main.py \
+  --protocol responses --force
+
+# azd deploy가 Dockerfile 이미지를 빌드 → Azure Container Registry로 push → Hosted Agent 등록
+azd provision --no-prompt
+azd deploy --no-prompt
+```
+
+| 항목 | 코드(ZIP) 모드 | 컨테이너 모드 |
+|------|----------------|----------------|
+| 배포 정의 | `code_configuration` | `container_configuration`(둘은 상호 배타) |
+| 로컬 Docker | **불필요** | 필요(이미지 빌드) |
+| 추가 인프라 | 없음 | **Azure Container Registry** 사용 |
+| 의존성 제어 | 클라우드 `remote_build` 또는 `bundled` | `Dockerfile`에서 직접 제어 |
+| 적합한 경우 | 가장 빠른 첫 배포 | 시스템 패키지 설치·재현 빌드 등 세밀한 제어 |
+
+> ⚠️ 호스팅 플랫폼은 **`linux/amd64`** 이미지를 요구합니다. Apple Silicon 등 ARM 머신에서
+> 로컬 빌드할 때는 `docker build --platform linux/amd64 .`로 빌드하세요. ACR에 대한
+> **AcrPull**(프로젝트 관리 ID) 권한이 필요하며, azd가 자동으로 할당합니다.
 
 ## 기존 실습과의 차이
 
@@ -95,6 +186,6 @@ Application Insights에서 토큰·비용 메트릭을 확인할 수 있습니�
 > 각 폴더의 `main.py`는 Foundry 표준 변수를 먼저 읽고, 없으면 기존 이름으로 폴백하므로
 > 로컬 테스트 시 루트 `.env`를 그대로 쓸 수 있습니다. 각 폴더의 `.env.example`을 참고하세요.
 
-> ⚠️ Hosted Agents는 현재 **preview**입니다. 코드(ZIP) 배포 모드(권장)는 Docker가 불필요합니다.
-> 컨테이너 모드를 사용하는 경우 `linux/amd64` 이미지가 필요합니다(`--platform linux/amd64`).
-> 자세한 단계는 각 폴더의 `README.md`를 참고하세요.
+> ⚠️ Hosted Agents는 현재 **preview**입니다. 코드(ZIP) 모드는 Docker가 불필요하고, 컨테이너 모드만
+> `linux/amd64` 이미지가 필요합니다(위 "[(대안) 컨테이너 방식으로 배포](#대안-컨테이너-방식으로-배포)" 참고).
+> 폴더별 단계 예시는 각 폴더의 `README.md`도 함께 참고하세요.
