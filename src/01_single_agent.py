@@ -1,7 +1,7 @@
 """
 실습 1: 단일 에이전트 기본
 Microsoft Agent Framework를 사용한 가장 기본적인 에이전트 실행 예제입니다.
-Azure AI Foundry와 연동하여 단일 에이전트가 사용자 질문에 응답합니다.
+Microsoft Foundry와 연동하여 단일 에이전트가 사용자 질문에 응답합니다.
 """
 
 import asyncio
@@ -37,7 +37,7 @@ async def main():
         print("오류: MODEL_DEPLOYMENT_NAME 환경 변수를 설정해주세요.")
         sys.exit(1)
 
-    # FoundryChatClient는 Azure AI Foundry 프로젝트에 연결합니다
+    # FoundryChatClient는 Microsoft Foundry 프로젝트에 연결합니다
     try:
         client = FoundryChatClient(
             project_endpoint=project_endpoint,

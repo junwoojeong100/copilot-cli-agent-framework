@@ -12,7 +12,7 @@
 필요 리소스:
   - Azure AI Search 서비스 (RBAC: Search Service Contributor + Index Data Contributor/Reader)
   - Azure OpenAI 임베딩 배포 (예: text-embedding-3-large)
-  - Azure AI Foundry 프로젝트 + 채팅 모델 (응답 생성)
+  - Microsoft Foundry 프로젝트 + 채팅 모델 (응답 생성)
 """
 
 import asyncio
