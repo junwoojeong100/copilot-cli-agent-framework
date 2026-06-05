@@ -17,44 +17,19 @@
 에이전트 공통 가드레일 `AGENTS.md`가 있습니다. (Copilot CLI·`.github/` 설정·MCP 개발 도구는 ② 실습에서 다룹니다.)
 
 > **전제 지식**: Python 기초와 `async/await` 개념, 터미널(명령줄) 사용, 결제 가능한 **Azure 구독** 보유.
-> 처음이라면 아래 **⚡ 빠른 시작**으로 예제 1개만 먼저 성공시킨 뒤 단계별로 확장하는 것을 권장합니다.
-
----
-
-## ⚡ 빠른 시작 (예제 1개만 10분 만에 돌려보기)
-
-**Azure 리소스는 이 실습의 필수 전제**입니다. 다만 RAG(예제 `06`)용 Search·임베딩까지 다 만들 필요 없이,
-**채팅 모델 1개**만 배포하면 단일 에이전트(예제 `01`)를 바로 돌려 "성공 경험"을 만들 수 있습니다.
-
-```bash
-# 1) [필수] Azure 리소스 준비 — Part 1.2의 0)~3) 단계만 수행
-#    (Foundry 리소스·프로젝트 생성 + 채팅 모델 gpt-5.4 배포). 이미 있으면 az login만.
-az login
-
-# 2) 코드 설치
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env
-
-# 3) .env에 단 2줄만 채우기 (예제 01~05는 이 2줄이면 동작)
-#    PROJECT_ENDPOINT=https://<foundry>.services.ai.azure.com/api/projects/<project>
-#    MODEL_DEPLOYMENT_NAME=gpt-5.4
-
-# 4) 실행 — "=== 실행 완료 ===" 가 보이면 성공!
-python src/01_single_agent.py
-```
-
-> 예제 `06`(RAG)만 Azure AI Search·임베딩 모델이 추가로 필요합니다([Part 1.2](#12-azure-리소스-프로비저닝)의 4)~6) 단계).
-> 나머지(예제 `01`~`05`, MCP 포함)는 위 2줄로 충분합니다.
+> 처음이라면 **Part 1(사전 준비)부터 순서대로** 진행한 뒤 Part 2부터 예제를 하나씩 실행하는 것을 권장합니다.
 
 ---
 
 ## 이 문서를 읽는 순서 (학습 경로)
 
+아래 Part는 **순서대로 진행**하도록 구성되어 있습니다. Part 1에서 환경을 준비한 뒤,
+Part 2부터 예제를 하나씩 실행하며 단계적으로 확장하세요.
+
 | 대상 | 권장 범위 |
 |------|-----------|
-| 🟢 **처음 시작하는 분** | **Part 1 → Part 2~7** (단일 에이전트부터 RAG까지 핵심 6개 예제 `01`~`06`) |
-| 🔴 **심화/배포까지** | 위 + **Part 8·9** (Foundry SDK v2, Hosted Agent 배포) |
+| 🟢 **처음 시작하는 분** | **Part 1 → Part 2 → … → Part 7** (단일 에이전트부터 RAG까지 핵심 6개 예제 `01`~`06`) |
+| 🔴 **심화/배포까지** | 위 + **Part 8 → Part 9** (Foundry SDK v2, Hosted Agent 배포) |
 | 🟣 **GitHub Copilot CLI로 직접 개발** | **별도 독립 실습** → [GitHub Copilot CLI 랩](docs/copilot-cli-lab.md) (CLI 설치 · `.github/` 설정 · 멀티 에이전트 패턴 · 바이브 코딩 · 가드레일) |
 
 ---
@@ -143,9 +118,8 @@ python src/01_single_agent.py
 | 8~9 | (심화) Foundry Agent SDK v2 / Hosted Agent 배포 |
 | 별도 | **GitHub Copilot CLI 랩** — 완전히 독립된 실습 ([docs/copilot-cli-lab.md](docs/copilot-cli-lab.md)) |
 
-> 위 **⚡ 빠른 시작**은 Part 1을 통째로 끝내기 전에 시도할 수 있는 **Part 1의 최소 축약본**입니다.
-> (Azure 로그인 + 채팅 모델 1개 + `.env` 2줄) RAG·Search 등 나머지 준비를 생략할 뿐,
-> 사전 준비 자체를 건너뛰는 것은 아닙니다.
+> **Part 1(사전 준비)이 모든 예제의 전제**입니다. Azure(Microsoft Foundry) 리소스·모델 배포와
+> `.env` 설정을 먼저 끝낸 뒤, Part 2부터 예제를 순서대로 실행하세요.
 
 ### 0.1 핵심 기술 — 기능과 장점
 
