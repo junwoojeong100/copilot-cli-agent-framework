@@ -40,9 +40,12 @@ server.run()
 | [`04_concurrent_workflow/`](04_concurrent_workflow/) | `src/04_concurrent_workflow.py` | 동시 워크플로우(보안·성능·UX 리뷰어) 호스팅 |
 | [`05_mcp_agent/`](05_mcp_agent/) | `src/05_mcp_agent.py` | MCP 도구 연동 에이전트(`get_mcp_tool`) 호스팅 |
 | [`06_rag_agent/`](06_rag_agent/) | `src/06_rag_agent.py` | RAG 에이전트(하이브리드 검색 함수 도구) 호스팅 |
+| [`06_rag_agent_foundry_iq/`](06_rag_agent_foundry_iq/) | `src/06_rag_agent_foundry_iq.py` | RAG 변형(Foundry IQ 지식 베이스 + agentic retrieval) 호스팅 |
 
 > 02~04 워크플로우는 `Workflow.as_agent()`로 감싸 호스팅하고, 05는 서버 측
 > `client.get_mcp_tool(...)`, 06은 하이브리드 검색을 **함수 도구**로 노출합니다.
+> 06 Foundry IQ 변형은 검색을 지식 베이스에 위임하는 **컨텍스트 프로바이더**
+> (`AzureAISearchContextProvider` agentic 모드)를 연결합니다.
 
 각 폴더는 독립 배포 가능한 azd 프로젝트로, 다음 파일을 포함합니다:
 `main.py`, `requirements.txt`, `Dockerfile`, `agent.yaml`, `agent.manifest.yaml`,

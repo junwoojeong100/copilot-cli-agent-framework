@@ -55,6 +55,7 @@ python 03_group_chat.py          # 협업 토론: 기획자·개발자·디자�
 python 04_concurrent_workflow.py # 동시 리뷰: 보안·성능·UX (ConcurrentBuilder)
 python 05_mcp_agent.py           # MCP 도구 연동 (서버 측 MCPTool, Microsoft Learn)
 python 06_rag_agent.py           # RAG (Azure AI Search 검색 + SDK v2 생성)
+python 06_rag_agent_foundry_iq.py # RAG 변형 (Foundry IQ 지식 베이스 + SDK v2 생성)
 ```
 
 각 예제는 시작 시 SDK v2로 에이전트를 만들고, MAF로 실행한 뒤, 끝나면 생성한
@@ -85,6 +86,14 @@ python 06_rag_agent.py           # RAG (Azure AI Search 검색 + SDK v2 생성)
   **생성 단계만 SDK v2 에이전트**가 담당합니다. 전 과정 키리스로 동작합니다.
   v2 네이티브 `AzureAISearchTool`(서버 측 검색)은 프로젝트에 Search 연결+인덱스
   등록이 필요해 이 예제에서는 사용하지 않습니다.
+
+- **06 RAG 변형 (Foundry IQ)** — [`06_rag_agent_foundry_iq.py`](../src/foundry_sdk_v2/06_rag_agent_foundry_iq.py)는
+  검색을 **Foundry IQ 지식 베이스(agentic retrieval)** 에 위임합니다. SDK v2 `FoundryAgent`에
+  `AzureAISearchContextProvider`(agentic 모드)를 `context_providers`로 연결하면, 에이전트가
+  질문마다 멀티홉 검색을 수행하고 결과를 컨텍스트로 자동 주입합니다. 인덱스 시드·프로바이더는
+  저장소 공용 헬퍼 [`_rag_iq.py`](../src/_rag_iq.py)를 사용합니다.
+  > 요구사항: Azure AI Search semantic ranker 활성화 + agentic 지원 리전(루트 README 1.2 참고).
+  > 비동기 Search 클라이언트를 쓰므로 프로바이더에는 `azure.identity.aio` 자격 증명을 전달합니다.
 
 ## Application Insights 분산 추적 (트레이싱)
 

@@ -12,7 +12,7 @@
 
 두 실습은 같은 저장소를 공유하지만 **학습 경로와 필수 전제는 독립적**입니다. 아래는 ① 실습입니다.
 
-이 문서(①)는 `src/`의 6가지 Agent Framework 예제(4가지 멀티 에이전트 패턴 + MCP 도구 연동 + RAG)를
+이 문서(①)는 `src/`의 6가지 Agent Framework 예제(4가지 멀티 에이전트 패턴 + MCP 도구 연동 + RAG, RAG는 하이브리드·Foundry IQ 2가지 변형)를
 다룹니다. 각 예제는 Python으로 작성되어 `FoundryChatClient`로 Microsoft Foundry에 연결하며, 루트에는
 에이전트 공통 가드레일 `AGENTS.md`가 있습니다. (Copilot CLI·`.github/` 설정·MCP 개발 도구는 ② 실습에서 다룹니다.)
 
@@ -79,12 +79,14 @@ Part 2부터 예제를 하나씩 실행하며 단계적으로 확장하세요.
     ├── 03_group_chat.py            # GroupChat (다중 협업)
     ├── 04_concurrent_workflow.py   # 동시 (보안·성능·UX 병렬 검토)
     ├── 05_mcp_agent.py             # MCP 도구 연동 (외부 시스템 호출)
-    ├── 06_rag_agent.py             # RAG (검색 증강 생성)
+    ├── 06_rag_agent.py             # RAG (검색 증강 생성 — 하이브리드 검색)
+    ├── 06_rag_agent_foundry_iq.py  # RAG 변형 (Foundry IQ 지식 베이스 + agentic retrieval)
+    ├── _rag_iq.py                  # Foundry IQ RAG 공용 헬퍼 (인덱스 시드 + 컨텍스트 프로바이더)
     ├── _streaming.py               # 스트리밍 출력 공용 헬퍼 (전 예제 공유)
     │
     │   # ── 아래 두 폴더는 (심화) 입니다. 처음에는 건너뛰어도 됩니다 ──
-    ├── foundry_sdk_v2/             # (심화) Foundry Agent SDK v2 생성 + MAF 오케스트레이션 (01~06 미러, Part 8)
-    └── hosted_agents/              # (심화) MAF 에이전트·워크플로우를 Foundry Hosted Agent로 배포 (01~06, Part 9)
+    ├── foundry_sdk_v2/             # (심화) Foundry Agent SDK v2 생성 + MAF 오케스트레이션 (01~06 + 06 Foundry IQ 변형 미러, Part 8)
+    └── hosted_agents/              # (심화) MAF 에이전트·워크플로우를 Foundry Hosted Agent로 배포 (01~06 + 06 Foundry IQ 변형, Part 9)
 ```
 
 ---
@@ -197,9 +199,17 @@ az cognitiveservices account deployment create \
 # 5) Azure AI Search 서비스 생성 (예제 06 RAG 전용)
 #    --auth-options aadOrApiKey: 키리스(Entra ID) 데이터플레인 접근을 켭니다.
 #    (기본값은 API 키 전용이라, 생략하면 RAG 실행 시 'Forbidden' 오류가 납니다.)
+#    --semantic-search free: 예제 06 변형(Foundry IQ agentic retrieval)에 필요한
+#      semantic ranker를 켭니다. (free 플랜은 월 무료 할당량 제공)
+#    ⚠️ Foundry IQ를 쓰려면 LOCATION이 agentic retrieval 지원 리전이어야 합니다
+#       (예: eastus2). 미지원 리전이면 기본 06(하이브리드) 예제만 동작합니다.
 #    리전이 용량 부족(InsufficientResourcesAvailable)이면 다른 리전을 사용하세요.
 az search service create -n $SEARCH -g $RG -l $LOCATION --sku basic \
-  --auth-options aadOrApiKey
+  --auth-options aadOrApiKey --semantic-search free
+
+# 5-1) (Foundry IQ 전용) Search 서비스에 시스템 할당 관리 ID 부여
+#      지식 베이스가 질의를 벡터화할 때 Search 서비스가 Azure OpenAI를 호출합니다.
+az search service update -n $SEARCH -g $RG --identity-type SystemAssigned
 
 # 6) 권한(RBAC) — 본인 계정에 데이터플레인(리소스의 실제 데이터를 읽고 쓰는 작업) 역할 부여 (키리스 인증)
 ME=$(az ad signed-in-user show --query id -o tsv)
@@ -212,10 +222,18 @@ az role assignment create --assignee $ME --role "Cognitive Services OpenAI User"
 az role assignment create --assignee $ME --role "Search Service Contributor"     --scope $SEARCH_ID
 az role assignment create --assignee $ME --role "Search Index Data Contributor"  --scope $SEARCH_ID
 az role assignment create --assignee $ME --role "Search Index Data Reader"       --scope $SEARCH_ID
+
+# 6-1) (Foundry IQ 전용) Search 서비스 관리 ID에 Azure OpenAI 사용 권한 부여
+#      지식 베이스의 벡터화(임베딩) 호출에 필요합니다.
+SEARCH_MI=$(az search service show -n $SEARCH -g $RG --query identity.principalId -o tsv)
+az role assignment create --assignee-object-id $SEARCH_MI --assignee-principal-type ServicePrincipal \
+  --role "Cognitive Services OpenAI User" --scope $ACC_ID
 ```
 
-> **RAG 인덱스 생성**: 별도 명령이 필요 없습니다. 예제 06의 `06_rag_agent.py`가 **첫 실행 시
-> 인덱스를 자동 생성**하고 문서를 임베딩·업로드합니다(멱등). 위에서 만든 **Search 서비스**만 있으면 됩니다.
+> **RAG 인덱스 생성**: 별도 명령이 필요 없습니다. 예제 06의 `06_rag_agent.py`(하이브리드)와
+> `06_rag_agent_foundry_iq.py`(Foundry IQ)가 **첫 실행 시 인덱스를 자동 생성**하고 문서를
+> 임베딩·업로드합니다(멱등). Foundry IQ 예제는 별도 인덱스(`maf-lab-knowledge-iq-v1`)와
+> 지식 베이스(`maf-lab-knowledge-iq-v1-kb`)까지 자동으로 만듭니다.
 
 > **이미 만든 Search 서비스에서 'Forbidden'이 난다면** 키리스(Entra ID) 인증이 꺼져 있는
 > 경우입니다. 다음으로 활성화하세요.
@@ -262,6 +280,9 @@ SEARCH_INDEX_NAME=maf-lab-knowledge-v1
 AZURE_OPENAI_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
 EMBEDDING_DEPLOYMENT_NAME=text-embedding-3-large
 AZURE_OPENAI_API_VERSION=2024-10-21
+
+# 예제 06 변형 (Foundry IQ RAG) — 지식 베이스 + agentic retrieval
+SEARCH_INDEX_NAME_IQ=maf-lab-knowledge-iq-v1
 
 # (심화) Foundry Agent SDK v2 — Application Insights 추적 (기본값: true, Part 8 참조)
 # ENABLE_TRACING=true
@@ -671,11 +692,49 @@ RBAC: 실행 사용자는 검색 서비스에 **Search Service Contributor**(인
 **Search Index Data Contributor/Reader**(문서 업로드·조회) 역할이, 임베딩 호출에는 Azure OpenAI
 사용 권한이 필요합니다.
 
-### 한 단계 더 — Foundry IQ
+### 한 단계 더 — Foundry IQ (지식 베이스 + agentic retrieval)
 
-지식 베이스를 코드에서 관리하는 대신 **Foundry IQ** 지식 베이스로 자동 동기화하고,
-`agent_framework.azure`의 `AzureAISearchContextProvider`(semantic / agentic 모드)를 사용하면
-검색 단계를 프레임워크에 위임할 수 있습니다.
+지식 베이스를 코드에서 직접 검색하는 대신 **Foundry IQ** 지식 베이스에 검색을
+위임할 수 있습니다. `agent_framework.azure`의 `AzureAISearchContextProvider`(agentic
+모드)를 에이전트의 `context_providers`에 연결하면, 에이전트가 질문을 받을 때마다
+지식 베이스에 **멀티홉 검색**을 수행하고 그 결과를 컨텍스트로 자동 주입합니다.
+검색·증강을 직접 코딩할 필요가 없습니다.
+
+```python
+from agent_framework.azure import AzureAISearchContextProvider
+from azure.identity.aio import AzureCliCredential as AioAzureCliCredential
+
+# 인덱스로부터 지식 소스/지식 베이스(<index>-kb)를 자동 생성하고 멀티홉 검색
+async with AzureAISearchContextProvider(
+    endpoint=search_endpoint,
+    index_name="maf-lab-knowledge-iq-v1",
+    mode="agentic",
+    model=chat_model_deployment,                # 질의 계획용 채팅 모델(예: gpt-5.4)
+    azure_openai_resource_url=aoai_endpoint,
+    credential=AioAzureCliCredential(),          # 비동기 자격 증명 필수
+) as provider:
+    agent = Agent(client=client, instructions="...근거 기반 답변...",
+                  context_providers=[provider])
+    await agent.run("Pro 요금제는 얼마이고 기술 지원은 얼마나 빨리 받나요?")
+```
+
+```bash
+python src/06_rag_agent_foundry_iq.py
+```
+
+기존 하이브리드 예제(`06_rag_agent.py`)와의 차이는 다음과 같습니다.
+
+| 구분 | `06_rag_agent.py` (하이브리드) | `06_rag_agent_foundry_iq.py` (Foundry IQ) |
+| --- | --- | --- |
+| 검색 주체 | Python 코드(직접 BM25+벡터 융합) | Foundry IQ 지식 베이스(agentic 멀티홉) |
+| 증강 | 직접 프롬프트 조립 | 컨텍스트 프로바이더가 자동 주입 |
+| 인덱스 | `maf-lab-knowledge-v1` | `maf-lab-knowledge-iq-v1` (+ 기본 semantic 구성) |
+| 추가 리소스 | — | semantic ranker 활성화 + agentic 지원 리전 |
+
+> **요구사항**: Azure AI Search에 **semantic ranker 활성화**(`--semantic-search free`),
+> **agentic retrieval 지원 리전**, 인덱스의 **기본 semantic 구성**(예제가 자동 생성),
+> Search 서비스 관리 ID의 Azure OpenAI 사용 권한이 필요합니다([1.2 프로비저닝](#12-azure-리소스-프로비저닝) 참고).
+> 심화 트랙(Part 8 SDK v2 · Part 9 Hosted Agent)에도 동일한 Foundry IQ 변형 예제가 있습니다.
 
 > ✅ **체크포인트**: 지식 베이스에 없는 질문(예: "배송비는 얼마인가요?")에 에이전트가
 > "관련 정보를 찾을 수 없습니다"라고 답하면 RAG가 올바르게 동작하는 것입니다.
@@ -701,7 +760,7 @@ RBAC: 실행 사용자는 검색 서비스에 **Search Service Contributor**(인
 Part 8이 **에이전트 "생성"을 SDK v2로** 바꾸는 접근이라면, 이 파트는 코드를 **그대로 둔 채**
 MAF 에이전트·워크플로우를 **Microsoft Foundry Hosted Agent**(관리형 컨테이너)로 **배포**합니다.
 SDK v2로 재작성하지 않아도 관리형 인프라와 **자동 trace/monitoring**을 그대로 얻는 것이 핵심입니다.
-`ResponsesHostServer` 호스팅 패턴, 6개 예제 목록, `azd` 배포 흐름, 기존 실습과의 차이 등 자세한
+`ResponsesHostServer` 호스팅 패턴, 7개 예제 목록(06은 하이브리드·Foundry IQ 2가지 RAG 변형), `azd` 배포 흐름, 기존 실습과의 차이 등 자세한
 내용은 별도 문서로 분리했습니다.
 
 > 위치: [`src/hosted_agents/`](src/hosted_agents/) · 의존성: `agent-framework-foundry-hosting`

@@ -40,6 +40,7 @@ server.run()
 | [`04_concurrent_workflow/`](../src/hosted_agents/04_concurrent_workflow/) | `src/04_concurrent_workflow.py` | 동시 워크플로우(`Workflow.as_agent()`) |
 | [`05_mcp_agent/`](../src/hosted_agents/05_mcp_agent/) | `src/05_mcp_agent.py` | MCP 도구 연동(서버 측 `get_mcp_tool`) |
 | [`06_rag_agent/`](../src/hosted_agents/06_rag_agent/) | `src/06_rag_agent.py` | RAG(하이브리드 검색 함수 도구) |
+| [`06_rag_agent_foundry_iq/`](../src/hosted_agents/06_rag_agent_foundry_iq/) | `src/06_rag_agent_foundry_iq.py` | RAG 변형(Foundry IQ 지식 베이스 + agentic retrieval, 컨텍스트 프로바이더) |
 
 각 폴더는 독립 배포 가능한 azd 프로젝트로 `main.py`·`Dockerfile`·`agent.yaml`·
 `agent.manifest.yaml` 등을 포함합니다(`agent.manifest.yaml`은 `azd ai agent init`의

@@ -36,7 +36,7 @@ mkdir -p ~/deploy/concurrent-workflow && cd ~/deploy/concurrent-workflow
 REPO="/path/to/copilot-cli-agent-framework"
 azd ai agent init --no-prompt \
   -m "$REPO/src/hosted_agents/04_concurrent_workflow/agent.manifest.yaml" \
-  --agent-name maf-lab-concurrent-workflow \
+  --agent-name maf-lab-concurrent \
   --project-id "<Foundry 프로젝트 리소스 ID>" \
   --model-deployment gpt-5.4 \
   --deploy-mode code --runtime python_3_13 --entry-point main.py \

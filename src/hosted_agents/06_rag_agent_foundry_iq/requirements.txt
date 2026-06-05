@@ -1,0 +1,24 @@
+# Foundry Hosted Agent 런타임 의존성 (Foundry IQ RAG)
+# (이 폴더는 코드(ZIP)로 원격 빌드되므로 자체 완결적으로 의존성을 명시합니다.)
+# 주의: 메타패키지 `agent-framework`는 linux/x86_64 전용 `agent-framework-hyperlight`를
+# 끌어와 원격 빌드에서 의존성 충돌을 일으키므로, 필요한 하위 패키지만 명시합니다.
+
+# Agent / orchestrations
+agent-framework-core>=1.7.0
+# FoundryChatClient
+agent-framework-foundry>=1.7.0
+# Foundry IQ 지식 베이스 agentic 검색 컨텍스트 프로바이더
+agent-framework-azure-ai-search>=1.0.0b260521
+# Foundry Hosted Agent 호스팅(ResponsesHostServer 제공, 프리뷰)
+agent-framework-foundry-hosting>=1.0.0a260528
+# 호스팅 패키지가 내부적으로 import하지만 의존성으로 선언하지 않은 패키지(McpError)
+mcp>=1.24.0,<2
+
+# 키리스 인증 (동기 + 비동기 자격 증명)
+azure-identity==1.25.3
+
+# 로컬 .env 로딩용
+python-dotenv>=1.2.2
+
+# Foundry IQ — 지식 베이스 / agentic retrieval 클라이언트
+azure-search-documents==11.7.0b2

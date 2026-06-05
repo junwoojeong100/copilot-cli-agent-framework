@@ -55,13 +55,15 @@ class FoundryAgentFactory:
         self._created: list[str] = []
         self._agents: list[FoundryAgent] = []
 
-    def create(self, slug: str, instructions: str, *, tools=None) -> FoundryAgent:
+    def create(self, slug: str, instructions: str, *, tools=None, context_providers=None) -> FoundryAgent:
         """SDK v2로 에이전트를 생성하고 MAF ``FoundryAgent``로 감싸 반환합니다.
 
         Args:
             slug: 에이전트 식별 슬러그(영문, 예: ``"analyzer"``).
             instructions: 에이전트 역할 지시사항(한국어).
             tools: 에이전트에 부여할 도구 목록(선택).
+            context_providers: MAF 컨텍스트 프로바이더 목록(선택). 예: Foundry IQ
+                agentic 검색 프로바이더. ``before_run`` 훅에서 검색 결과를 주입합니다.
 
         Returns:
             MAF 워크플로우에 바로 넣을 수 있는 ``FoundryAgent`` 인스턴스.
@@ -85,6 +87,7 @@ class FoundryAgentFactory:
             agent_name=agent_name,
             agent_version=str(version.version),
             credential=self._credential,
+            context_providers=context_providers,
         )
         self._agents.append(agent)
         return agent
