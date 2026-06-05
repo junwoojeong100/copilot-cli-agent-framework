@@ -86,6 +86,10 @@ Copilot CLI/Chat는 작업 디렉토리의 `.github/` 설정과 `AGENTS.md`를 �
 
 ## Part 3. 멀티 에이전트 패턴으로 개발하기
 
+> 이 Part는 **① 에이전트 정의(`.github/agents/`) → ② 에이전트가 쓸 도구 연결(MCP 서버) →
+> ③ 둘을 합친 실습** 순서로 진행합니다. 에이전트는 "일꾼", MCP 서버는 "일꾼이 쓰는 연장"이라
+> 같은 Part에서 함께 다룹니다.
+
 `.github/agents/`에 역할별 에이전트를 정의하고 `copilot --agent <name>`으로 실행합니다.
 이 저장소에는 **7개** 에이전트(오케스트레이터 + 4가지 협업 패턴 + reviewer·debugger)가 포함되어
 있습니다. `orchestrator`는 요청을 분석해 4가지 협업 패턴(📐 Planner-Executor, ⚔️ Debate & Critic,
@@ -96,7 +100,7 @@ Copilot CLI/Chat는 작업 디렉토리의 `.github/` 설정과 `AGENTS.md`를 �
 
 > 📄 **자세히 보기**: [`docs/custom-agents-guide.md`](custom-agents-guide.md)
 
-### MCP 서버 연결
+### 에이전트에게 줄 도구 — MCP 서버 연결
 
 `.copilot/mcp-config.json`로 MCP 서버를 Copilot CLI에 붙입니다. 이 저장소에는 **Azure · GitHub ·
 Microsoft Learn** 세 가지 서버가 설정되어 있습니다.
