@@ -1,23 +1,30 @@
-# GitHub Copilot CLI로 배우는 Microsoft Agent Framework 핸즈온 랩
+# Microsoft Agent Framework 핸즈온 랩 (Python · Microsoft Foundry)
 
-> **터미널에서 GitHub Copilot CLI와 대화하며, Microsoft Foundry 기반의 Microsoft Agent Framework
-> 멀티 에이전트(+ MCP 도구 연동 · RAG)를 단계별로 직접 만들어보는 자체 완결형 핸즈온 랩.**
+> **Microsoft Foundry 기반의 Microsoft Agent Framework로 멀티 에이전트(+ MCP 도구 연동 · RAG)를
+> Python으로 단계별로 직접 만들어보는 자체 완결형 핸즈온 랩.**
 
-이 저장소 하나로 실습이 완결됩니다. `src/`에 6가지 Agent Framework 예제(4가지 멀티 에이전트
-패턴 + MCP 도구 연동 + RAG)가 있고,
-`.github/`에는 Copilot CLI/Chat를 "조종"하는 설정(인스트럭션·프롬프트·에이전트·스킬)이,
-루트에는 안전 가드레일 `AGENTS.md`가 들어 있습니다. 또한 `.copilot/mcp-config.json`에는
-**Azure · GitHub · Microsoft Learn** MCP 서버가 미리 구성되어 있습니다.
+### 🧭 이 저장소는 독립된 2개 실습으로 구성됩니다
+
+| 실습 | 무엇을 배우나 | 필수 전제 |
+|------|---------------|-----------|
+| **① Microsoft Agent Framework 랩** (이 문서) | `src/`의 Python 예제로 에이전트·워크플로우를 만들어 Microsoft Foundry에 연결 | Python · Azure(Foundry) |
+| **② [GitHub Copilot CLI 랩](docs/copilot-cli-lab.md)** | Copilot CLI·`.github/` 설정·멀티 에이전트 패턴·바이브 코딩·가드레일로 개발 가속 | Copilot 구독 · Node.js (Azure는 선택) |
+
+두 실습은 같은 저장소를 공유하지만 **학습 경로와 필수 전제는 독립적**입니다. 아래는 ① 실습입니다.
+
+이 문서(①)는 `src/`의 6가지 Agent Framework 예제(4가지 멀티 에이전트 패턴 + MCP 도구 연동 + RAG)를
+다룹니다. 각 예제는 Python으로 작성되어 `FoundryChatClient`로 Microsoft Foundry에 연결하며, 루트에는
+에이전트 공통 가드레일 `AGENTS.md`가 있습니다. (Copilot CLI·`.github/` 설정·MCP 개발 도구는 ② 실습에서 다룹니다.)
 
 > **전제 지식**: Python 기초와 `async/await` 개념, 터미널(명령줄) 사용, 결제 가능한 **Azure 구독** 보유.
-> 처음이라면 아래 **⚡ 빠른 시작**으로 실습 1개만 먼저 성공시킨 뒤 단계별로 확장하는 것을 권장합니다.
+> 처음이라면 아래 **⚡ 빠른 시작**으로 예제 1개만 먼저 성공시킨 뒤 단계별로 확장하는 것을 권장합니다.
 
 ---
 
-## ⚡ 빠른 시작 (실습 1만 10분 만에 돌려보기)
+## ⚡ 빠른 시작 (예제 1개만 10분 만에 돌려보기)
 
-**Azure 리소스는 모든 실습의 필수 전제**입니다. 다만 RAG(실습 7)용 Search·임베딩까지 다 만들 필요 없이,
-**채팅 모델 1개**만 배포하면 단일 에이전트(실습 1)를 바로 돌려 "성공 경험"을 만들 수 있습니다.
+**Azure 리소스는 이 실습의 필수 전제**입니다. 다만 RAG(예제 `06`)용 Search·임베딩까지 다 만들 필요 없이,
+**채팅 모델 1개**만 배포하면 단일 에이전트(예제 `01`)를 바로 돌려 "성공 경험"을 만들 수 있습니다.
 
 ```bash
 # 1) [필수] Azure 리소스 준비 — Part 1.2의 0)~3) 단계만 수행
@@ -29,7 +36,7 @@ python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\act
 pip install -r requirements.txt
 cp .env.example .env
 
-# 3) .env에 단 2줄만 채우기 (실습 1~5·8은 이 2줄이면 동작)
+# 3) .env에 단 2줄만 채우기 (예제 01~05는 이 2줄이면 동작)
 #    PROJECT_ENDPOINT=https://<foundry>.services.ai.azure.com/api/projects/<project>
 #    MODEL_DEPLOYMENT_NAME=gpt-5.4
 
@@ -37,8 +44,8 @@ cp .env.example .env
 python src/01_single_agent.py
 ```
 
-> 실습 7(RAG)만 Azure AI Search·임베딩 모델이 추가로 필요합니다([Part 1.2](#12-azure-리소스-프로비저닝)의 4)~6) 단계).
-> 나머지(실습 1~5, 6 MCP)는 위 2줄로 충분합니다.
+> 예제 `06`(RAG)만 Azure AI Search·임베딩 모델이 추가로 필요합니다([Part 1.2](#12-azure-리소스-프로비저닝)의 4)~6) 단계).
+> 나머지(예제 `01`~`05`, MCP 포함)는 위 2줄로 충분합니다.
 
 ---
 
@@ -46,9 +53,9 @@ python src/01_single_agent.py
 
 | 대상 | 권장 범위 |
 |------|-----------|
-| 🟢 **처음 시작하는 분** | **Part 1 → Part 2~7** (단일 에이전트부터 RAG까지 핵심 6개 예제) |
+| 🟢 **처음 시작하는 분** | **Part 1 → Part 2~7** (단일 에이전트부터 RAG까지 핵심 6개 예제 `01`~`06`) |
 | 🔴 **심화/배포까지** | 위 + **Part 8·9** (Foundry SDK v2, Hosted Agent 배포) |
-| 🟣 **Copilot CLI로 직접 개발** | 별도 문서 [**GitHub Copilot CLI 실습**](docs/copilot-cli-lab.md) (CLI 설치 · `.github/` 설정 · 멀티 에이전트 패턴 · 바이브 코딩 · 가드레일) |
+| 🟣 **GitHub Copilot CLI로 직접 개발** | **별도 독립 실습** → [GitHub Copilot CLI 랩](docs/copilot-cli-lab.md) (CLI 설치 · `.github/` 설정 · 멀티 에이전트 패턴 · 바이브 코딩 · 가드레일) |
 
 ---
 
@@ -66,8 +73,7 @@ python src/01_single_agent.py
 - [Part 9. (심화) Hosted Agent 배포 — MAF 에이전트·워크플로우를 관리형으로](#part-9-심화-hosted-agent-배포--maf-에이전트워크플로우를-관리형으로)
 - [부록 A. 트러블슈팅](#부록-a-트러블슈팅)
 - [부록 B. 참고 자료](#부록-b-참고-자료)
-  - **별도 실습**: [GitHub Copilot CLI 실습](docs/copilot-cli-lab.md) — CLI 설치 · `.github/` 설정 · 멀티 에이전트 패턴 · 바이브 코딩 · 가드레일
-  - 프로젝트 문서: [Copilot CLI 가이드](docs/copilot-cli-guide.md) · [VS Code vs Copilot CLI](docs/vscode-vs-copilot-cli.md) · [GitHub 멀티 계정 설정](docs/github-multi-account-setup.md) · [`.github/` 설정](docs/github-config-guide.md) · [멀티 에이전트 패턴](docs/custom-agents-guide.md) · [바이브 코딩](docs/vibe-coding-guide.md) · [Foundry SDK v2 오케스트레이션](docs/foundry-sdk-v2-orchestration.md) · [Hosted Agent 배포](docs/hosted-agent-deployment.md)
+  - **별도 독립 실습**: [GitHub Copilot CLI 랩](docs/copilot-cli-lab.md) — CLI 설치 · `.github/` 설정 · 멀티 에이전트 패턴 · 바이브 코딩 · 가드레일
 
 ---
 
@@ -77,7 +83,7 @@ python src/01_single_agent.py
 .
 ├── README.md                       # 이 가이드
 ├── AGENTS.md                       # 에이전트 공통 가드레일 (push 금지·영문 커밋·PR 규칙)
-├── requirements.txt                # Python 의존성 (실습 01~06)
+├── requirements.txt                # Python 의존성 (예제 01~06)
 ├── requirements-foundry-sdk-v2.txt # Foundry Agent SDK v2 예제 전용 의존성 (오버레이)
 ├── .env.example                    # 환경변수 템플릿
 ├── .copilot/
@@ -110,23 +116,21 @@ python src/01_single_agent.py
 
 ## Part 0. 전체 그림
 
-목표는 Copilot CLI의 도움을 받아 **고객 지원 멀티 에이전트**를 단계적으로 완성하는 것입니다.
+목표는 **Microsoft Agent Framework(MAF)로 멀티 에이전트를 단계적으로 구축**하는 것입니다.
+단일 에이전트에서 시작해 순차·협업·병렬 워크플로우, MCP 도구 연동, RAG까지 확장합니다.
 
 ```
-        ┌──────────────────────────────────────────────────────────────┐
-        │  개발자  ──(자연어 지시)──▶  GitHub Copilot CLI                │
-        │                                  │                            │
-        │            .github/ 설정 ────────┤  (페르소나·규칙·스킬 주입)  │
-        │            AGENTS.md  ───────────┘  (안전 가드레일)            │
-        └──────────────────────────────────┬───────────────────────────┘
-                                            ▼  코드 생성/리뷰/실행
-        ┌──────────────────────────────────────────────────────────────┐
-        │           Microsoft Agent Framework  (Python)                │
-        │   Single → Sequential → GroupChat → Concurrent → MCP · RAG   │
-        │                          │                                   │
-        │                          ▼  FoundryChatClient                │
-        │                 Microsoft Foundry (gpt-5.4 배포)              │
-        └──────────────────────────────────────────────────────────────┘
+   [Python 예제 src/01~06]
+            │
+            ▼
+   Microsoft Agent Framework (MAF)
+     ├─ 단일 에이전트 (Agent)
+     ├─ 워크플로우: Sequential · GroupChat · Concurrent
+     ├─ MCP 도구 연동 (외부 시스템 호출)
+     └─ RAG (검색 증강 생성)
+            │
+            ▼  FoundryChatClient  (AzureCliCredential = az login)
+   Microsoft Foundry  (gpt-5.4 등 모델 배포)
 ```
 
 | Part | 무엇을 하나 |
@@ -137,25 +141,20 @@ python src/01_single_agent.py
 | 6 | MCP 도구 연동 — 에이전트가 외부 시스템 호출 |
 | 7 | RAG — 검색 증강 생성으로 근거 기반 답변 |
 | 8~9 | (심화) Foundry Agent SDK v2 / Hosted Agent 배포 |
-| 별도 | **GitHub Copilot CLI 실습** — CLI로 직접 개발 가속 ([docs/copilot-cli-lab.md](docs/copilot-cli-lab.md)) |
+| 별도 | **GitHub Copilot CLI 랩** — 완전히 독립된 실습 ([docs/copilot-cli-lab.md](docs/copilot-cli-lab.md)) |
 
 > 위 **⚡ 빠른 시작**은 Part 1을 통째로 끝내기 전에 시도할 수 있는 **Part 1의 최소 축약본**입니다.
 > (Azure 로그인 + 채팅 모델 1개 + `.env` 2줄) RAG·Search 등 나머지 준비를 생략할 뿐,
 > 사전 준비 자체를 건너뛰는 것은 아닙니다.
 
-### 0.1 핵심 기술 6가지 — 기능과 장점
-
-> Custom Agent · Skill · Instructions(아래 표의 2~4행)는 **GitHub Copilot CLI를 조종하는 `.github/` 설정**으로,
-> 자세한 실습은 별도 문서 [GitHub Copilot CLI 실습](docs/copilot-cli-lab.md)에서 다룹니다.
+### 0.1 핵심 기술 — 기능과 장점
 
 | 기술 | 무엇인가 | 핵심 기능 | 장점 |
 |------|----------|-----------|------|
-| **GitHub Copilot CLI** | 터미널에서 동작하는 에이전틱 코딩 도구 | 자연어 지시 → 계획·실행·검증 루프, 슬래시 커맨드(`/plan`·`/fleet`·`/model`), MCP·커스텀 에이전트 확장 | IDE 없이 터미널·CI에서 동작, 명령 실행 전 승인으로 안전, 모델 자유 선택 |
-| **Custom Agent**<br/>(`.github/agents/*.agent.md`) | 역할·도구가 제한된 전용 에이전트 | frontmatter로 `description`·`tools`·`model` 지정, `copilot --agent <name>` 실행 | 역할 격리(리뷰어=읽기전용)로 안전·집중, 재사용·팀 공유 |
-| **Skill**<br/>(`.github/skills/*/SKILL.md`) | Copilot에 주입하는 전문 지식·패턴 묶음 | `description`으로 트리거, 필요 시에만 본문 로드(점진적 공개) | 정확한 SDK 호출 유도, 토큰 절약, 환각 감소 |
-| **Instructions**<br/>(`.github/*instructions.md`) | 항상/조건부로 적용되는 규칙 | `copilot-instructions.md`(전역) + `instructions/*`(`applyTo` 글롭) | 일관된 스타일·규칙 자동 준수, 반복 지시 제거 |
 | **Microsoft Agent Framework**<br/>(MAF) | 에이전트·멀티 에이전트 오케스트레이션 오픈소스 Python SDK (Semantic Kernel·AutoGen 통합 후속) | `Agent`, Handoff·GroupChat·Workflow 오케스트레이션, MCP 도구, 미들웨어·관측성 | 단일 SDK로 단순→복잡 확장, 모델/클라이언트 추상화, 표준 MCP 연동 |
 | **Microsoft Foundry** | 모델 배포·평가·관측을 제공하는 Azure 통합 AI 플랫폼 | 프로젝트 단위 리소스, 모델 카탈로그·배포, `FoundryChatClient` 연결, Entra ID 인증 | 관리형 호스팅, 키 없는(`AzureCliCredential`) 엔터프라이즈 보안·거버넌스 |
+| **MCP**<br/>(모델 컨텍스트 프로토콜) | 에이전트가 외부 시스템(문서·DB·API)을 호출하는 표준 프로토콜 | `MCPStreamableHTTPTool` 등으로 원격/로컬 서버 연결, LLM이 필요 시 도구 자동 호출 | LLM 내부 지식 한계 보완, 실시간 데이터 기반 응답, 표준화된 도구 연동 |
+| **RAG**<br/>(검색 증강 생성) | 질문 관련 문서를 먼저 검색해 컨텍스트로 주입한 뒤 생성 | Azure AI Search 하이브리드(BM25+벡터) 검색 → 증강 프롬프트 → 생성 | 사내 데이터 근거 응답, 환각 감소, 출처 추적 가능 |
 
 ---
 
@@ -165,12 +164,11 @@ python src/01_single_agent.py
 
 | 도구 | 용도 | 설치 |
 |------|------|------|
-| **GitHub Copilot 구독** | Copilot CLI/Chat | <https://github.com/features/copilot> |
-| **GitHub Copilot CLI** | 터미널 AI 에이전트 | `npm install -g @github/copilot` (실습은 [GitHub Copilot CLI 실습 문서](docs/copilot-cli-lab.md)) |
-| **Node.js 22+** | Copilot CLI 런타임 + Azure MCP 서버(`npx`) | <https://nodejs.org> |
 | **Python 3.12+** | Agent Framework 코드 (이 랩은 3.12 기준으로 검증) | <https://python.org> |
-| **Azure CLI 2.81.0+** | Foundry 인증 + Azure MCP 서버 자격증명 | `az upgrade --yes` |
-| **GitHub PAT** | GitHub MCP 서버 인증 (`github` 블록 사용 시 필수, 미사용 시 선택) | <https://github.com/settings/tokens> |
+| **Azure CLI 2.81.0+** | Microsoft Foundry 인증(`az login` 키리스) | `az upgrade --yes` |
+
+> 💡 이 랩은 **Python 코드 실행**만으로 완결됩니다. GitHub Copilot CLI는 필요하지 않습니다.
+> CLI로 직접 개발을 가속하고 싶다면 완전히 독립된 실습 [GitHub Copilot CLI 랩](docs/copilot-cli-lab.md)을 참고하세요.
 
 ### 1.2 Azure 리소스 프로비저닝
 
@@ -178,7 +176,7 @@ python src/01_single_agent.py
 > **사용량 기반 과금**이며, 본 실습 정도의 호출량이면 보통 **수백 원~수천 원** 수준입니다.
 > 실습이 끝나면 [1.4 리소스 정리](#14-리소스-정리-실습-종료-후)로 리소스 그룹을 통째로 삭제해 비용을 막으세요.
 
-예제 실행에는 **Microsoft Foundry 리소스·프로젝트·모델 배포**가 필요하고, 실습 6(RAG)에는
+예제 실행에는 **Microsoft Foundry 리소스·프로젝트·모델 배포**가 필요하고, 예제 `06`(RAG)에는
 추가로 **Azure AI Search 서비스**가 필요합니다. 포털에서 만들어도 되지만, 아래 `az` CLI로
 한 번에 프로비저닝할 수 있습니다. (Foundry 프로젝트·모델은 [Microsoft Foundry 포털](https://ai.azure.com)에서도 생성 가능합니다.)
 
@@ -206,7 +204,7 @@ az cognitiveservices account project create \
 # (선택) 배포 가능한 모델·버전 확인
 az cognitiveservices account list-models -n $FOUNDRY -g $RG -o table
 
-# 3) 채팅 모델 배포 (실습 1~6)
+# 3) 채팅 모델 배포 (예제 01~06)
 #    ⚠️  --model-version은 반드시 위 list-models 출력에서 확인한 실제 버전으로 바꾸세요.
 #       아래 <version>은 placeholder입니다. 그대로 실행하면 배포가 실패합니다.
 az cognitiveservices account deployment create \
@@ -215,14 +213,14 @@ az cognitiveservices account deployment create \
   --model-name gpt-5.4 --model-version <version> --model-format OpenAI \
   --sku-name GlobalStandard --sku-capacity 10
 
-# 4) 임베딩 모델 배포 (실습 6 RAG 전용)
+# 4) 임베딩 모델 배포 (예제 06 RAG 전용)
 az cognitiveservices account deployment create \
   -n $FOUNDRY -g $RG \
   --deployment-name text-embedding-3-large \
   --model-name text-embedding-3-large --model-version 1 --model-format OpenAI \
   --sku-name Standard --sku-capacity 10
 
-# 5) Azure AI Search 서비스 생성 (실습 6 RAG 전용)
+# 5) Azure AI Search 서비스 생성 (예제 06 RAG 전용)
 #    --auth-options aadOrApiKey: 키리스(Entra ID) 데이터플레인 접근을 켭니다.
 #    (기본값은 API 키 전용이라, 생략하면 RAG 실행 시 'Forbidden' 오류가 납니다.)
 #    리전이 용량 부족(InsufficientResourcesAvailable)이면 다른 리전을 사용하세요.
@@ -242,7 +240,7 @@ az role assignment create --assignee $ME --role "Search Index Data Contributor" 
 az role assignment create --assignee $ME --role "Search Index Data Reader"       --scope $SEARCH_ID
 ```
 
-> **RAG 인덱스 생성**: 별도 명령이 필요 없습니다. 실습 6의 `06_rag_agent.py`가 **첫 실행 시
+> **RAG 인덱스 생성**: 별도 명령이 필요 없습니다. 예제 06의 `06_rag_agent.py`가 **첫 실행 시
 > 인덱스를 자동 생성**하고 문서를 임베딩·업로드합니다(멱등). 위에서 만든 **Search 서비스**만 있으면 됩니다.
 
 > **이미 만든 Search 서비스에서 'Forbidden'이 난다면** 키리스(Entra ID) 인증이 꺼져 있는
@@ -277,14 +275,14 @@ cp .env.example .env        # 아래 값 입력
 az login                    # 예제는 AzureCliCredential로 이 로그인 세션을 사용
 ```
 
-`.env` 값 (실습 1~5는 상단 2줄만 있으면 동작, 실습 6 RAG는 전체 필요):
+`.env` 값 (예제 01~05는 상단 2줄만 있으면 동작, 예제 06 RAG는 전체 필요):
 
 ```bash
-# 실습 1~6 공통 (Foundry 채팅)
+# 예제 01~06 공통 (Foundry 채팅)
 PROJECT_ENDPOINT=https://your-resource.services.ai.azure.com/api/projects/your-project
 MODEL_DEPLOYMENT_NAME=gpt-5.4
 
-# 실습 6 (RAG) — Azure AI Search + 임베딩
+# 예제 06 (RAG) — Azure AI Search + 임베딩
 SEARCH_SERVICE_ENDPOINT=https://your-search-service.search.windows.net
 SEARCH_INDEX_NAME=maf-lab-knowledge-v1
 AZURE_OPENAI_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
@@ -320,10 +318,6 @@ az group delete -n $RG --yes --no-wait
 > Entra ID)을 사용해 엔터프라이즈 보안을 유지합니다.
 
 코드: [`src/01_single_agent.py`](src/01_single_agent.py)
-
-> **Copilot CLI 프롬프트 예시**
-> `src/01_single_agent.py를 만들어줘. agent_framework의 Agent와 FoundryChatClient로 Foundry에
-> 연결하고, "기술 어시스턴트" 에이전트가 질문에 한국어로 답하게. AzureCliCredential, async로.`
 
 핵심:
 
@@ -716,7 +710,7 @@ RBAC: 실행 사용자는 검색 서비스에 **Search Service Contributor**(인
 
 ## Part 8. (심화) Foundry Agent SDK v2 + MAF 오케스트레이션
 
-실습 01~06은 에이전트를 **MAF `FoundryChatClient`(모델 채팅)** 로 구성합니다. 이 심화
+예제 01~06은 에이전트를 **MAF `FoundryChatClient`(모델 채팅)** 로 구성합니다. 이 심화
 세트는 **에이전트 "생성"은 Microsoft Foundry Agent SDK v2(`azure-ai-projects`)** 가
 맡고, **에이전트 "오케스트레이션"은 MAF 워크플로우 빌더**가 맡는 분리 구조를 보여줍니다.
 핵심 패턴(생성=SDK v2 / 실행=MAF), 예제 목록·실행, MCP·RAG 연동, Application Insights
@@ -769,33 +763,27 @@ SDK v2로 재작성하지 않아도 관리형 인프라와 **자동 trace/monito
 | MCP 도구를 호출 안 함 | `tools=` 전달 누락, `async with mcp_tool:` 밖에서 실행, 서버 URL 확인 |
 | RAG가 문서 밖 내용을 지어냄 | 검색 결과 빈약 또는 "추측 금지" 지시문 누락 |
 | GroupChat이 끝나지 않음 | `max_rounds` 미설정 |
-| Copilot CLI가 명령을 실행 안 함 | 정상 — 실행 전 승인 필요. 신뢰 환경이면 `--yolo` |
-| `/mcp`에 azure 서버가 안 보임 | Node.js 22+ 설치 확인, 첫 실행 시 `npx`가 패키지 다운로드 |
-| azure MCP 도구 401/권한 오류 | `az login` 재실행, 계정 RBAC 권한·구독 확인 |
-| github MCP 인증 실패 | `GITHUB_PERSONAL_ACCESS_TOKEN` 환경변수 설정 여부 확인 |
 | Hosted Agent: `ModuleNotFoundError: agent_framework_foundry_hosting` | `pip install agent-framework-foundry-hosting` (배포 시점 의존성) |
 | Hosted Agent: `azd ai agent` 명령 없음 | `azd ext install azure.ai.agents`, `azd auth login` |
 | Hosted Agent: 배포 후 ARM 이미지 오류 | `linux/amd64` 필요 — `docker build --platform linux/amd64 .` |
 | Hosted Agent: 인증 실패 | 컨테이너는 `DefaultAzureCredential`(관리 ID) 사용, 로컬은 `az login` |
 
-> 더 체계적인 진단은 `copilot --agent debugger`를 사용하세요.
+> GitHub Copilot CLI 관련 문제(CLI 실행·MCP 서버·PAT 등)는 별도 실습
+> [GitHub Copilot CLI 랩](docs/copilot-cli-lab.md)의 트러블슈팅을 참고하세요.
 
 ## 부록 B. 참고 자료
 
 ### 프로젝트 문서
 
-- [Copilot CLI 가이드](docs/copilot-cli-guide.md) — 설치부터 활용까지
-- [VS Code(IDE) vs Copilot CLI(터미널) 비교](docs/vscode-vs-copilot-cli.md)
-- [GitHub 멀티 계정 설정 가이드](docs/github-multi-account-setup.md) — 개인 계정(Git) + 조직 계정(Copilot) 병행
-- [`.github/` 설정 가이드](docs/github-config-guide.md) · [멀티 에이전트 패턴](docs/custom-agents-guide.md) · [바이브 코딩](docs/vibe-coding-guide.md)
 - [Foundry Agent SDK v2 오케스트레이션](docs/foundry-sdk-v2-orchestration.md) · [Hosted Agent 배포](docs/hosted-agent-deployment.md)
+
+> GitHub Copilot CLI 관련 문서(가이드 · VS Code 비교 · `.github/` 설정 · 멀티 에이전트 패턴 · 바이브 코딩 등)는
+> 별도 실습 [GitHub Copilot CLI 랩](docs/copilot-cli-lab.md)에서 다룹니다.
 
 ### 외부 링크
 
-- [GitHub Copilot CLI 공식 문서](https://docs.github.com/copilot/concepts/agents/about-copilot-cli)
 - [Microsoft Agent Framework (GitHub)](https://github.com/microsoft/agent-framework)
 - [Microsoft Foundry 문서](https://learn.microsoft.com/azure/foundry/)
 - [Azure AI Projects SDK](https://learn.microsoft.com/python/api/overview/azure/ai-projects-readme)
 - [MCP 프로토콜 명세](https://modelcontextprotocol.io/)
-- [Azure MCP 서버](https://github.com/Azure/azure-mcp)
 - [Microsoft Learn MCP 서버](https://learn.microsoft.com/training/support/mcp)

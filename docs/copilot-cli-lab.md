@@ -1,12 +1,35 @@
-# GitHub Copilot CLI 실습 — CLI로 멀티 에이전트 개발 가속하기
+# GitHub Copilot CLI 랩 — CLI로 멀티 에이전트 개발 가속하기
 
-> 이 문서는 [메인 README](../README.md)의 **부속 실습**입니다. 메인 README가 *Microsoft Agent
-> Framework로 에이전트를 만드는 법*을 다룬다면, 이 문서는 **GitHub Copilot CLI 자체를 개발
-> 도구로 활용**하는 법(설치 · `.github/` 설정 · 멀티 에이전트 패턴 · 바이브 코딩 · 가드레일)을 다룹니다.
+> **완전히 독립된 실습입니다.** [Microsoft Agent Framework 핸즈온 랩](../README.md)과 별개로, 이 문서만으로
+> **GitHub Copilot CLI 자체를 개발 도구로 활용**하는 법(설치 · `.github/` 설정 · 멀티 에이전트 패턴 ·
+> 바이브 코딩 · 가드레일)을 익힙니다.
+>
+> 두 실습은 서로 의존하지 않습니다. **Azure 리소스나 Python 코드 실행 없이도** 이 랩을 완주할 수 있습니다.
 
-> **사전 준비**: 먼저 메인 README의 [Part 1. 사전 준비](../README.md#part-1-사전-준비)를 끝내세요
-> (Azure/Microsoft Foundry 리소스 + Python 설치 + `.env`). 이 실습의 코드 검증 단계에서
-> `python src/...` 예제를 실행합니다.
+## 사전 준비
+
+| 도구 | 필수/선택 | 용도 | 설치 |
+|------|-----------|------|------|
+| **GitHub Copilot 구독** | 필수 | Copilot CLI 사용 권한 | <https://github.com/features/copilot> |
+| **GitHub Copilot CLI** | 필수 | 터미널 AI 에이전트 | `npm install -g @github/copilot` |
+| **Node.js 22+** | 필수 | CLI 런타임 (+ `npx`로 실행되는 MCP 서버) | <https://nodejs.org> |
+| **이 저장소 클론** | 필수 | `.github/`·`.copilot/` 설정을 실습 대상으로 사용 | `git clone <repo>` |
+| **GitHub PAT** | 선택 | `github` MCP 블록 사용 시에만 (Part 3) | <https://github.com/settings/tokens> |
+| **Azure CLI + `az login`** | 선택 | `azure` MCP 서버 인증 시에만 (Part 3) | `az upgrade --yes` |
+
+> 💡 **범위 안내**: 이 랩은 같은 저장소의 Microsoft Agent Framework 코드(`src/`)를 **예시 도메인**으로
+> 삼아 "Copilot에게 에이전트 코드를 생성·리뷰시키는" 흐름을 보여줍니다. 다만 생성된 코드를 **실제로
+> 실행(= Azure·Python 필요)하는 것은 선택**이며, CLI 학습 자체에는 필요하지 않습니다. 실행까지 해보고
+> 싶다면 [Microsoft Agent Framework 핸즈온 랩](../README.md)의 사전 준비를 따르세요.
+
+## 핵심 기술 — Copilot CLI를 조종하는 요소
+
+| 기술 | 무엇인가 | 핵심 기능 | 장점 |
+|------|----------|-----------|------|
+| **GitHub Copilot CLI** | 터미널에서 동작하는 에이전틱 코딩 도구 | 자연어 지시 → 계획·실행·검증 루프, 슬래시 커맨드(`/plan`·`/fleet`·`/model`), MCP·커스텀 에이전트 확장 | IDE 없이 터미널·CI에서 동작, 명령 실행 전 승인으로 안전, 모델 자유 선택 |
+| **Custom Agent**<br/>(`.github/agents/*.agent.md`) | 역할·도구가 제한된 전용 에이전트 | frontmatter로 `description`·`tools`·`model` 지정, `copilot --agent <name>` 실행 | 역할 격리(리뷰어=읽기전용)로 안전·집중, 재사용·팀 공유 |
+| **Skill**<br/>(`.github/skills/*/SKILL.md`) | Copilot에 주입하는 전문 지식·패턴 묶음 | `description`으로 트리거, 필요 시에만 본문 로드(점진적 공개) | 정확한 SDK 호출 유도, 토큰 절약, 환각 감소 |
+| **Instructions**<br/>(`.github/*instructions.md`) | 항상/조건부로 적용되는 규칙 | `copilot-instructions.md`(전역) + `instructions/*`(`applyTo` 글롭) | 일관된 스타일·규칙 자동 준수, 반복 지시 제거 |
 
 ## 목차
 
@@ -111,10 +134,11 @@ Microsoft Learn** 세 가지 서버가 설정되어 있습니다.
 설정 적용 및 확인:
 
 ```bash
-# 1) GitHub PAT를 환경변수로 등록 (github 서버용)
+# 1) (선택) github 서버를 쓸 때만 — GitHub PAT를 환경변수로 등록
 export GITHUB_PERSONAL_ACCESS_TOKEN=ghp_xxx
 
-# 2) Azure 서버는 npx로 자동 실행되며, Azure CLI 로그인 세션을 사용
+# 2) (선택) azure 서버를 쓸 때만 — Azure CLI 로그인 세션을 사용
+#    여기서 az login은 'azure MCP 서버 인증' 용도일 뿐, CLI 학습 자체에는 필요 없습니다.
 az login
 
 # 3) Copilot CLI 세션에서 등록된 MCP 서버 확인
@@ -123,6 +147,9 @@ copilot
 > /env           # 로드된 MCP 서버·인스트럭션·스킬 확인
 ```
 
+> 💡 위 1)·2)는 **모두 선택**입니다. PAT·Azure 없이도 `microsoftLearn`(인증 불필요) 서버만으로
+> 이 Part의 흐름을 따라갈 수 있습니다.
+>
 > 참고: Copilot CLI는 GitHub MCP 서버를 기본 내장하고 있어, 위 `github` 항목 없이도 기본 GitHub
 > 기능은 사용할 수 있습니다. 명시적으로 두면 사용할 토큰/도구를 직접 제어할 수 있습니다.
 > **단, `github` 블록을 유지하면 `GITHUB_PERSONAL_ACCESS_TOKEN`이 반드시 설정되어 있어야 인증 오류가
@@ -152,18 +179,30 @@ copilot
 | `skills/` — SDK 사용법·패턴 | 정확한 SDK 호출 |
 | `agents/` — 리뷰/디버그 역할 | 자동 리뷰·디버깅 |
 
-### 실습 흐름
+### 실습 흐름 (Azure 없이 진행)
 
 ```text
 1. (CLI) "UX 리뷰 전문 에이전트를 동시 워크플로우에 추가해줘"라고 자연어로 요청
    (VS Code Copilot Chat이라면 /add-agent 프롬프트로 호출)
 2. Copilot이 agent-framework-codegen 스킬 규칙(import·async·instructions)에 맞춰 코드 생성
-3. copilot --agent reviewer 로 리뷰 → 수정
-4. python src/04_concurrent_workflow.py 로 실행 검증
+3. /diff 로 변경사항 확인 → copilot --agent reviewer 로 리뷰 → 수정
+4. python -m py_compile src/04_concurrent_workflow.py 로 문법 검증 (Azure 불필요)
 ```
 
-> ✅ **최종 체크포인트**: 직접 만든 `.github/` 설정만으로 Copilot이 새 에이전트/기능을 추가하게
-> 만들 수 있으면, 이 실습의 목표를 달성한 것입니다.
+> 위 흐름은 **CLI 학습이 목적**이므로 Azure 리소스나 실제 실행이 필요 없습니다. `/diff`·`reviewer`
+> 에이전트·`py_compile`만으로 "Copilot이 규칙에 맞는 코드를 생성했는가"를 확인합니다.
+
+### (선택) 생성한 코드를 실제로 실행해 보기
+
+생성된 에이전트를 **런타임에서 동작**시켜 보고 싶다면, [Microsoft Agent Framework 핸즈온 랩](../README.md)의
+사전 준비(Azure/Microsoft Foundry 리소스 + Python + `.env`)를 끝낸 뒤 다음을 실행합니다.
+
+```bash
+python src/04_concurrent_workflow.py   # 실제 실행 (Azure·Python 필요, 선택)
+```
+
+> ✅ **최종 체크포인트**: 직접 만든 `.github/` 설정만으로 Copilot이 규칙에 맞는 새 에이전트/기능을
+> 생성·리뷰하게 만들 수 있으면, **이 CLI 랩의 목표를 달성**한 것입니다. (실제 실행 여부는 선택)
 >
 > 📄 **자세히 보기**: [`docs/vibe-coding-guide.md`](vibe-coding-guide.md) — CLI 워크플로우 흐름도, 재사용 팁
 
