@@ -31,6 +31,15 @@
 | **Skill**<br/>(`.github/skills/*/SKILL.md`) | Copilot에 주입하는 전문 지식·패턴 묶음 | `description`으로 트리거, 필요 시에만 본문 로드(점진적 공개) | 정확한 SDK 호출 유도, 토큰 절약, 환각 감소 |
 | **Instructions**<br/>(`.github/*instructions.md`) | 항상/조건부로 적용되는 규칙 | `copilot-instructions.md`(전역) + `instructions/*`(`applyTo` 글롭) | 일관된 스타일·규칙 자동 준수, 반복 지시 제거 |
 
+> 🎯 **이 랩을 마치면**: ① Copilot CLI를 설치·인증해 터미널에서 대화하고, ② `.github/` 설정으로
+> Copilot의 동작을 "조종"하며, ③ 커스텀 에이전트 + MCP 도구로 멀티 에이전트 개발을 수행하고,
+> ④ 바이브 코딩으로 규칙에 맞는 코드를 생성·리뷰하고, ⑤ 가드레일로 안전하게 커밋/PR 할 수 있습니다.
+>
+> ⏱️ **전체 예상 소요: 약 45–60분** (Azure/Python으로 실제 실행하는 부분은 선택)
+>
+> 👉 **진행 방법**: 각 Part의 코드 블록을 **위에서 아래로** 그대로 따라 입력하고, 끝에 있는
+> ✅ **확인** 체크포인트로 결과를 점검한 뒤 다음 Part로 넘어가세요.
+
 ## 목차
 
 - [Part 1. Copilot CLI 시작하기](#part-1-copilot-cli-시작하기)
@@ -38,10 +47,16 @@
 - [Part 3. 멀티 에이전트 패턴으로 개발하기](#part-3-멀티-에이전트-패턴으로-개발하기)
 - [Part 4. 바이브 코딩 — 설정만으로 코드 생성하기](#part-4-바이브-코딩--설정만으로-코드-생성하기)
 - [Part 5. 가드레일 (AGENTS.md)](#part-5-가드레일-agentsmd)
+- [부록. 트러블슈팅](#부록-트러블슈팅)
 
 ---
 
 ## Part 1. Copilot CLI 시작하기
+
+> 🎯 **목표**: Copilot CLI를 설치·인증하고 터미널에서 첫 대화를 나눠 봅니다.
+> ⏱️ 예상 소요: 약 10분 · 준비물: GitHub Copilot 구독, Node.js 22+
+
+### 1단계 — 설치하고 버전 확인
 
 ```bash
 # 설치 (전 플랫폼, Node.js 22+ 필요)
@@ -49,9 +64,54 @@ npm install -g @github/copilot
 # 또는 macOS/Linux: curl -fsSL https://gh.io/copilot-install | bash
 # 또는: brew install copilot-cli   /   winget install GitHub.Copilot
 
-# 실행 (대화형 세션)
+# 설치 확인
+copilot --version
+```
+
+설치가 끝나면 버전 번호가 출력됩니다.
+
+```text
+1.0.x
+```
+
+### 2단계 — 실행하고 로그인
+
+```bash
+# 이 저장소 디렉토리에서 실행해야 .github/·.copilot/ 설정을 함께 읽습니다
+cd copilot-cli-agent-framework
 copilot
 ```
+
+처음 실행하면 배너가 뜨고, 로그인이 안 되어 있으면 안내가 나옵니다. 세션 프롬프트(`>`)에
+`/login`을 입력하세요.
+
+```text
+> /login
+# 브라우저가 열리고 device code 인증을 안내합니다. 완료하면 세션으로 돌아옵니다.
+```
+
+> 💡 PAT로 인증하려면 `export GH_TOKEN=...` 후 `copilot`을 실행합니다. 자세한 내용은
+> [Copilot CLI 가이드 — 인증 및 첫 실행](copilot-cli-guide.md#인증-및-첫-실행)을 참고하세요.
+
+### 3단계 — 첫 대화 해보기
+
+세션 프롬프트(`>`)에 자연어로 입력합니다.
+
+```text
+> 이 저장소의 구조를 한 문단으로 설명해줘
+```
+
+Copilot이 파일을 읽고(필요하면 실행 승인을 먼저 요청) 한국어로 요약해 줍니다. 파일 변경이나
+명령 실행이 필요한 작업은 **실행 전에 항상 승인을 묻습니다**(기본 Interactive 모드).
+
+### 4단계 — 모드 전환·모델 선택·종료
+
+| 동작 | 방법 |
+|------|------|
+| Plan(계획 우선) ↔ Interactive 모드 전환 | `Shift+Tab` |
+| 모델 변경 | `/model` (Claude Sonnet/Opus, GPT-5 등) |
+| 전체 슬래시 커맨드 보기 | `/help` |
+| 세션 종료 | `/exit` 또는 `Ctrl+C` 두 번 |
 
 자주 쓰는 슬래시 커맨드:
 
@@ -60,13 +120,17 @@ copilot
 /fleet     # 병렬 서브에이전트 실행
 /model     # 모델 선택 (Claude Sonnet/Opus, GPT-5 등)
 /diff      # 변경사항 리뷰
-/pr        # PR 생성/관리
+/mcp       # 등록된 MCP 서버 상태 확인
+/env       # 로드된 인스트럭션·스킬·에이전트 확인
 ```
 
 특성: **에이전트 코딩**(계획→실행→검증), **안전 실행**(명령 실행 전 승인, 신뢰 환경에서만 `--yolo`),
 **MCP 확장**(외부 시스템을 도구로 연결), **커스텀 에이전트**(`copilot --agent <name>`).
 
-> 💡 이 실습에서는 Copilot CLI에게 "이런 에이전트를 만들어줘"라고 지시하고, 생성된 코드를
+> ✅ **확인**: `copilot` 세션이 열리고 첫 질문에 한국어 답변을 받았다면 Part 1 완료입니다.
+> 막히면 [부록. 트러블슈팅](#부록-트러블슈팅)을 보세요.
+
+> 💡 이 랩에서는 Copilot CLI에게 "이런 에이전트를 만들어줘"라고 지시하고, 생성된 코드를
 > 검토·실행합니다. `src/`의 예제는 그 결과물의 완성본입니다.
 >
 > 📄 **더 알아보기(선택)**: [Copilot CLI 가이드](copilot-cli-guide.md) — 설치·인증·슬래시 커맨드 전체 레퍼런스 ·
@@ -99,6 +163,25 @@ Copilot CLI/Chat는 작업 디렉토리의 `.github/` 설정과 `AGENTS.md`를 �
 | `prompts/*` | 반복 작업 템플릿. **VS Code Chat**에서 `/프롬프트명` 호출(CLI는 자연어로 동일 요청) |
 | `agents/*` | `copilot --agent`로 실행하는 역할별 에이전트 |
 | `skills/*` | SDK 사용법·패턴을 Copilot에 "교육"하는 전문 지식 |
+
+### 직접 확인해 보기
+
+`copilot` 세션을 연 상태에서 다음을 순서대로 해봅니다.
+
+```text
+1. (셸) 전역 규칙 파일을 직접 열어 봅니다 — ! 로 시작하면 로컬 셸에서 바로 실행됩니다
+   > !cat .github/copilot-instructions.md
+2. (CLI) 현재 세션에 무엇이 로드됐는지 확인합니다
+   > /env
+3. (CLI) 규칙이 실제로 적용되는지 물어봅니다
+   > 지금 적용 중인 코딩 규칙과 커밋 메시지 규칙을 요약해줘
+```
+
+`/env` 출력에는 로드된 인스트럭션·스킬·커스텀 에이전트·MCP 서버가 함께 표시됩니다.
+
+> ✅ **확인**: `/env`에 `copilot-instructions.md`와 `instructions/*`가 로드되어 있고, 3번 질문에
+> Copilot이 "커밋 메시지는 영문 Conventional Commits" 같은 **이 저장소의 규칙**을 답하면 성공입니다.
+> 즉, 같은 질문이라도 `.github/` 설정에 따라 답이 달라진다는 것을 직접 확인한 것입니다.
 
 > 📄 **더 알아보기(선택)**: `SKILL.md`·`*.agent.md` frontmatter 구조, 파일 유형별 동작·재사용 범위는
 > [`.github/` 설정 가이드](github-config-guide.md)를 참고하세요.
@@ -193,6 +276,15 @@ copilot
 > /env           # 로드된 MCP 서버·인스트럭션·스킬 확인
 ```
 
+`/mcp`를 실행하면 등록된 서버와 연결 상태가 표시됩니다(이름·유형은 환경에 따라 다를 수 있음).
+
+```text
+> /mcp
+  github          http    ✓ connected
+  azure           local   ✓ connected
+  microsoftLearn  http    ✓ connected
+```
+
 > 💡 위 1)·2)는 **모두 선택**입니다. PAT·Azure 없이도 `microsoftLearn`(인증 불필요) 서버만으로
 > 이 Part의 흐름을 따라갈 수 있습니다.
 >
@@ -211,12 +303,20 @@ copilot
 > *"Microsoft Learn에서 Agent Framework Concurrent 오케스트레이션 문서를 찾아 동시 워크플로우에
 > 비용 리뷰 전문 에이전트를 추가하고 리뷰해줘"* 라고 요청해 보세요. (Learn 문서 검색 + 코드 생성 + 리뷰 연계)
 
+> ✅ **확인**: `/mcp`에 서버가 `connected`로 보이고, 위 요청으로 오케스트레이터가 Learn 문서를
+> 검색해 새 에이전트 코드를 제안하면 Part 3 완료입니다. (PAT·Azure 없이 `microsoftLearn`만으로도 가능)
+
 ---
 
 ## Part 4. 바이브 코딩 — 설정만으로 코드 생성하기
 
+> 🎯 **목표**: 손으로 코드를 쓰지 않고 `.github/` 설정만으로 Copilot이 규칙에 맞는 코드를
+> 생성·리뷰하게 만듭니다.
+> ⏱️ 예상 소요: 약 15분 · Azure/Python 실행은 선택
+
 **바이브 코딩**은 코드를 손으로 쓰는 대신, `.github/`의 instructions·prompts·skills로 의도를
-정의하고 Copilot이 코드를 생성하게 하는 방식입니다.
+정의하고 Copilot이 코드를 생성하게 하는 방식입니다. 핵심은 **"무엇을 만들 것인가"와 "어떤 패턴을
+따를 것인가"를 정확히 문서화**하면, AI가 일관된 품질의 코드를 생성한다는 것입니다.
 
 | 개발자가 준비 | Copilot이 수행 |
 |---------------|----------------|
@@ -225,8 +325,24 @@ copilot
 | `skills/` — SDK 사용법·패턴 | 정확한 SDK 호출 |
 | `agents/` — 리뷰/디버그 역할 | 자동 리뷰·디버깅 |
 
-> 📄 **더 알아보기(선택)**: CLI 바이브 코딩 워크플로우 흐름도·재사용 팁은
-> [바이브 코딩 가이드](vibe-coding-guide.md)를 참고하세요.
+### 바이브 코딩 워크플로우 한눈에 보기
+
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│  1. 시작: copilot 실행 → .github/ 설정 자동 인식                  │
+│     copilot-instructions.md, instructions/*.md → 자동 적용       │
+├─────────────────────────────────────────────────────────────────┤
+│  2. 계획: /plan 모드로 구현 계획 수립 (선택)                       │
+│     "동시 워크플로우에 리뷰어를 추가하려면 어떤 순서로?"            │
+├─────────────────────────────────────────────────────────────────┤
+│  3. 생성: 자연어로 코드 생성/수정 요청                              │
+│     "UX 리뷰 전문 에이전트를 04_concurrent_workflow.py에 추가해줘" │
+├─────────────────────────────────────────────────────────────────┤
+│  4. 검증: /diff로 변경사항 확인 → /review로 코드 리뷰              │
+├─────────────────────────────────────────────────────────────────┤
+│  5. 완료: 커밋 또는 /delegate로 PR 생성을 Copilot에 위임           │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ### 실습 흐름 (Azure 없이 진행)
 
@@ -238,8 +354,29 @@ copilot
 4. python -m py_compile src/04_concurrent_workflow.py 로 문법 검증 (Azure 불필요)
 ```
 
+> `py_compile`은 문법 오류가 없으면 **아무것도 출력하지 않고 종료**합니다(종료 코드 0). 그게 정상입니다.
+
 > 위 흐름은 **CLI 학습이 목적**이므로 Azure 리소스나 실제 실행이 필요 없습니다. `/diff`·`reviewer`
 > 에이전트·`py_compile`만으로 "Copilot이 규칙에 맞는 코드를 생성했는가"를 확인합니다.
+
+이후에도 자연어로 요청하면 `.github/copilot-instructions.md`와 `instructions/*.md`의 규칙을 반영한
+코드를 생성합니다.
+
+```text
+> RAG 에이전트에 top_k를 5로 변경해줘
+> 새 MCP 도구를 추가해줘
+> 동시 워크플로우에 새로운 검토 관점을 추가해줘
+```
+
+### 재사용 팁
+
+- **공용 인스트럭션 복사**: `instructions/python.instructions.md`·`azure.instructions.md`·
+  `korean.instructions.md`·`git-commit.instructions.md`를 새 프로젝트의 `.github/instructions/`에
+  복사하면 동일한 컨벤션·보안·작성 규칙이 즉시 적용됩니다.
+- **새 예제 추가 규칙**: 예제는 `src/`에 `NN_<name>.py` 규칙으로 추가하고, 진입점은
+  `if __name__ == "__main__": asyncio.run(main())` 패턴을 따릅니다.
+- **설정 구조 참고**: `.github/` 설정의 동작 방식과 구성요소별 역할은
+  [`.github/` 설정 가이드](github-config-guide.md)를 참고하세요.
 
 ### (선택) 생성한 코드를 실제로 실행해 보기
 
@@ -253,7 +390,8 @@ python src/04_concurrent_workflow.py   # 실제 실행 (Azure·Python 필요, �
 > ✅ **최종 체크포인트**: 직접 만든 `.github/` 설정만으로 Copilot이 규칙에 맞는 새 에이전트/기능을
 > 생성·리뷰하게 만들 수 있으면, **이 CLI 랩의 목표를 달성**한 것입니다. (실제 실행 여부는 선택)
 >
-> 📄 **자세히 보기**: [`docs/vibe-coding-guide.md`](vibe-coding-guide.md) — CLI 워크플로우 흐름도, 재사용 팁
+> 📎 더 깊은 바이브 코딩 워크플로우 예시는 참고 프로젝트
+> [`vibe-coded-foundry-agents`](https://github.com/junwoojeong100/vibe-coded-foundry-agents)에서 확인할 수 있습니다.
 
 ---
 
@@ -280,8 +418,27 @@ git checkout main && git push origin main      # 보호 브랜치 직접 push
 git push --force-with-lease origin <branch>     # force push
 ```
 
+> ✅ **확인**: 기능 브랜치(`feat/*`)에서 영문 Conventional Commits로 커밋하고 `--draft --base main`
+> 으로 PR을 만들 수 있으면 Part 5 완료입니다. Copilot에게 커밋/PR을 맡겨도 이 가드레일을 따릅니다.
+
+---
+
+## 부록. 트러블슈팅
+
+| 증상 | 원인 | 해결 |
+|------|------|------|
+| `copilot: command not found` | 전역 설치 경로가 PATH에 없음 | `npm install -g @github/copilot` 재실행 후 새 터미널 열기. 전역 경로 확인: `npm prefix -g` |
+| 실행 시 로그인 안내만 반복 | GitHub 인증 미완료 | 세션에서 `/login` 후 브라우저 인증 완료, 또는 `export GH_TOKEN=...` 설정 |
+| `/mcp`에 서버가 안 보임 | `.copilot/mcp-config.json` 미인식 또는 JSON 오류 | 저장소 루트에서 `copilot` 실행, JSON 문법 확인 후 세션 재시작 |
+| github 서버 인증 오류 | `GITHUB_PERSONAL_ACCESS_TOKEN` 미설정 | PAT를 `export` 하거나, `github` 블록을 제거하고 기본 내장 GitHub 서버 사용 |
+| azure 서버 연결 실패 | `az login` 세션 없음/만료 | `az login` 재실행, `az account show`로 로그인 상태 확인 |
+| `--agent <name>` 실행 안 됨 | 에이전트 파일명/위치 불일치 | `.github/agents/<name>.agent.md` 존재 확인, 세션에서 `/agent`로 목록 확인 |
+| Node.js 버전 오류 | Node 22 미만 | `node -v`로 확인 후 22+ 설치 (<https://nodejs.org>) |
+
+> 📄 더 많은 사례: [Copilot CLI 가이드 — 트러블슈팅](copilot-cli-guide.md#트러블슈팅)
+
 ---
 
 > 📄 메인 실습으로 돌아가기: [README](../README.md)
 >
-> **더 알아보기(선택, 심화)**: [Copilot CLI 가이드](copilot-cli-guide.md) · [`.github/` 설정](github-config-guide.md) · [멀티 에이전트 패턴](custom-agents-guide.md) · [바이브 코딩](vibe-coding-guide.md) · [VS Code vs CLI](vscode-vs-copilot-cli.md) · [GitHub 멀티 계정 설정](github-multi-account-setup.md)
+> **더 알아보기(선택, 심화)**: [Copilot CLI 가이드](copilot-cli-guide.md) · [`.github/` 설정](github-config-guide.md) · [멀티 에이전트 패턴](custom-agents-guide.md) · [VS Code vs CLI](vscode-vs-copilot-cli.md) · [GitHub 멀티 계정 설정](github-multi-account-setup.md)
