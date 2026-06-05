@@ -40,7 +40,7 @@ server.run()
 | `AZURE_OPENAI_API_VERSION` | Azure OpenAI API 버전 |
 | `PROJECT_ENDPOINT` / `MODEL_DEPLOYMENT_NAME` | 저장소 로컬 호환용 폴백 (선택) |
 
-> RAG 실행에는 에이전트(컨테이너 관리 ID)에 Azure AI Search·Azure OpenAI 접근
+> RAG 실행에는 에이전트(컨테이너의 관리형 ID, Managed Identity)에 Azure AI Search·Azure OpenAI 접근
 > 권한(RBAC)이 필요합니다. **배포 후** `azd ai agent show <name>` 으로 *Instance Identity
 > Principal ID* 를 확인하고 아래 두 역할을 부여하세요(전파에 1~2분 소요).
 >

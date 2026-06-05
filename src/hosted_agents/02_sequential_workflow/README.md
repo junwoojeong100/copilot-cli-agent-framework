@@ -37,7 +37,7 @@ server.run()             # 동기 호출
 | --- | --- |
 | `stream_workflow`로 1회 실행 후 종료 | `/responses` HTTP 서버 상시 구동 |
 | `asyncio.run(main())` | `server.run()` (동기) |
-| `AzureCliCredential` | `DefaultAzureCredential` (컨테이너 관리 ID) |
+| `AzureCliCredential` | `DefaultAzureCredential` (컨테이너의 관리형 ID, Managed Identity) |
 | Workflow 직접 실행 | `Workflow.as_agent()`로 감싸 호스팅 |
 
 ## 환경 변수

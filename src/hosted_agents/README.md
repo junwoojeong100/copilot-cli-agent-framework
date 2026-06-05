@@ -57,7 +57,7 @@ server.run()
 | --- | --- |
 | 프롬프트 1건 처리 후 종료 | `/responses` HTTP 서버 상시 구동 |
 | `asyncio.run(main())` | `server.run()` (동기) |
-| `AzureCliCredential` | `DefaultAzureCredential` (컨테이너 관리 ID) |
+| `AzureCliCredential` | `DefaultAzureCredential` (컨테이너의 관리형 ID, Managed Identity) |
 | 저장소 `.env`(`PROJECT_ENDPOINT`) | Foundry 주입 env(`FOUNDRY_PROJECT_ENDPOINT`) |
 
 > 호스팅 `main.py`는 자체 완결적이라 `src/_streaming.py` 같은 저장소 헬퍼를

@@ -716,7 +716,7 @@ SDK v2로 재작성하지 않아도 관리형 인프라와 **자동 trace/monito
 나아가, **GitHub Copilot CLI 자체를 개발 도구로 활용**해 위 에이전트들을 *자연어 지시로 생성·리뷰·확장*하는
 실습을 별도 문서로 제공합니다.
 
-> 📄 **[GitHub Copilot CLI 실습 — docs/copilot-cli-lab.md](docs/copilot-cli-lab.md)**
+> 📄 **[GitHub Copilot CLI 랩 — docs/copilot-cli-lab.md](docs/copilot-cli-lab.md)**
 > - Part 1. Copilot CLI 시작하기 (설치·슬래시 커맨드)
 > - Part 2. Copilot을 "조종"하는 `.github/` 설정
 > - Part 3. 멀티 에이전트 패턴으로 개발하기 (`--agent`)
