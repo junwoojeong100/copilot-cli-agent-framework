@@ -24,7 +24,7 @@ server.run()                          # 동기 호출 (asyncio.run으로 감싸�
 | --- | --- |
 | 질문 1건 처리 후 종료 | `/responses` HTTP 서버 상시 구동 |
 | `asyncio.run(main())` | `server.run()` (동기) |
-| `AzureCliCredential` | `DefaultAzureCredential` (컨테이너 관리 ID) |
+| `AzureCliCredential` | `DefaultAzureCredential` (컨테이너의 관리형 ID, Managed Identity) |
 | 저장소 `.env` 이름 | Foundry 주입 환경 변수(`FOUNDRY_PROJECT_ENDPOINT` 등) |
 
 ## 환경 변수
