@@ -21,7 +21,7 @@
 - **Foundry 연동**: `FoundryChatClient` (`agent_framework.foundry`)
 - **오케스트레이션**: `SequentialBuilder`, `GroupChatBuilder`, `ConcurrentBuilder` (`agent_framework.orchestrations`)
 - **인증**: `azure-identity` → `AzureCliCredential` (로컬은 `az login` 세션 사용)
-- **모델**: Azure AI Foundry 배포 모델 (기본 `gpt-5.4`)
+- **모델**: Microsoft Foundry 배포 모델 (기본 `gpt-5.4`)
 - **환경변수**: `python-dotenv` → 루트 `.env`
 
 ## 프로젝트 코드 패턴

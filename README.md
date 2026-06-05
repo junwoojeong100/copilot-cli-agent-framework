@@ -1,13 +1,53 @@
-# GitHub Copilot CLI로 만드는 Microsoft Agent Framework 실습
+# GitHub Copilot CLI로 배우는 Microsoft Agent Framework 핸즈온 랩
 
-> **터미널에서 GitHub Copilot CLI와 대화하며, Microsoft Agent Framework 기반의 멀티 에이전트를
-> 단계별로 직접 만들어보는 자체 완결형 핸즈온.**
+> **터미널에서 GitHub Copilot CLI와 대화하며, Microsoft Foundry 기반의 Microsoft Agent Framework
+> 멀티 에이전트(+ MCP 도구 연동 · RAG)를 단계별로 직접 만들어보는 자체 완결형 핸즈온 랩.**
 
 이 저장소 하나로 실습이 완결됩니다. `src/`에 6가지 Agent Framework 예제(4가지 멀티 에이전트
 패턴 + MCP 도구 연동 + RAG)가 있고,
 `.github/`에는 Copilot CLI/Chat를 "조종"하는 설정(인스트럭션·프롬프트·에이전트·스킬)이,
 루트에는 안전 가드레일 `AGENTS.md`가 들어 있습니다. 또한 `.copilot/mcp-config.json`에는
 **Azure · GitHub · Microsoft Learn** MCP 서버가 미리 구성되어 있습니다.
+
+> **전제 지식**: Python 기초와 `async/await` 개념, 터미널(명령줄) 사용, 결제 가능한 **Azure 구독** 보유.
+> 처음이라면 아래 **⚡ 빠른 시작**으로 실습 1개만 먼저 성공시킨 뒤 단계별로 확장하는 것을 권장합니다.
+
+---
+
+## ⚡ 빠른 시작 (실습 1만 5분 만에 돌려보기)
+
+전체 환경(RAG·Search 등)을 다 갖추기 전에, **단일 에이전트(실습 1)** 하나만 먼저 실행해
+"성공 경험"을 만드는 최소 경로입니다. 자세한 프로비저닝은 [Part 1](#part-1-사전-준비)을 참고하세요.
+
+```bash
+# 1) Azure 로그인 + 채팅 모델 1개만 배포 (이미 Foundry가 있으면 생략)
+az login
+#   └ Foundry 리소스·프로젝트·gpt-5.4 배포가 없다면 Part 1.2의 0)~3) 단계만 수행
+
+# 2) 코드 설치
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env
+
+# 3) .env에 단 2줄만 채우기 (실습 1~5·8은 이 2줄이면 동작)
+#    PROJECT_ENDPOINT=https://<foundry>.services.ai.azure.com/api/projects/<project>
+#    MODEL_DEPLOYMENT_NAME=gpt-5.4
+
+# 4) 실행 — "=== 실행 완료 ===" 가 보이면 성공!
+python src/01_single_agent.py
+```
+
+> 실습 6(RAG)만 Azure AI Search·임베딩 모델이 추가로 필요합니다. 나머지(1~5, 8)는 위 2줄로 충분합니다.
+
+---
+
+## 이 문서를 읽는 순서 (학습 경로)
+
+| 대상 | 권장 범위 |
+|------|-----------|
+| 🟢 **처음 시작하는 분** | **Part 1 → Part 4~9** (단일 에이전트부터 RAG까지 핵심 6개 예제). Part 13·14는 건너뛰어도 됩니다. |
+| 🟡 **Copilot CLI 활용까지** | 위 + **Part 2·3·10·11·12** (CLI 설정·멀티 에이전트·가드레일) |
+| 🔴 **심화/배포** | 전체 + **Part 13·14** (Foundry SDK v2, Hosted Agent 배포) |
 
 ---
 
@@ -63,22 +103,10 @@
     ├── 05_mcp_agent.py             # MCP 도구 연동 (외부 시스템 호출)
     ├── 06_rag_agent.py             # RAG (검색 증강 생성)
     ├── _streaming.py               # 스트리밍 출력 공용 헬퍼 (전 예제 공유)
-    ├── foundry_sdk_v2/             # (심화) Foundry Agent SDK v2로 생성 + MAF 오케스트레이션
-    │   ├── _foundry_agents.py      # SDK v2 에이전트 생성·정리·추적 헬퍼 (FoundryAgent 래핑)
-    │   ├── _rag_search.py          # RAG 검색·증강 로직 (Azure AI Search, 루트 06 미러)
-    │   ├── 01_single_agent.py      # 단일 에이전트
-    │   ├── 02_sequential_workflow.py   # 순차 (SequentialBuilder)
-    │   ├── 03_group_chat.py        # GroupChat (GroupChatBuilder)
-    │   ├── 04_concurrent_workflow.py   # 동시 (ConcurrentBuilder)
-    │   ├── 05_mcp_agent.py         # MCP 도구 연동 (서버 측 MCPTool)
-    │   └── 06_rag_agent.py         # RAG (Azure AI Search 검색 + SDK v2 생성)
-    └── hosted_agents/              # (심화) MAF 에이전트·워크플로우를 Foundry Hosted Agent로 배포
-        ├── 01_single_agent/        # 단일 에이전트 호스팅 (ResponsesHostServer)
-        ├── 02_sequential_workflow/ # 순차 워크플로우 호스팅 (Workflow.as_agent())
-        ├── 03_group_chat/          # GroupChat 호스팅 (Workflow.as_agent())
-        ├── 04_concurrent_workflow/ # 동시 워크플로우 호스팅 (Workflow.as_agent())
-        ├── 05_mcp_agent/           # MCP 도구 연동 호스팅 (get_mcp_tool)
-        └── 06_rag_agent/           # RAG 호스팅 (하이브리드 검색 함수 도구)
+    │
+    │   # ── 아래 두 폴더는 (심화) 입니다. 처음에는 건너뛰어도 됩니다 ──
+    ├── foundry_sdk_v2/             # (심화) Foundry Agent SDK v2 생성 + MAF 오케스트레이션 (01~06 미러, Part 13)
+    └── hosted_agents/              # (심화) MAF 에이전트·워크플로우를 Foundry Hosted Agent로 배포 (01~06, Part 14)
 ```
 
 ---
@@ -100,12 +128,13 @@
         │   Single → Sequential → GroupChat → Concurrent → MCP · RAG   │
         │                          │                                   │
         │                          ▼  FoundryChatClient                │
-        │                 Azure AI Foundry (gpt-5.4 배포)              │
+        │                 Microsoft Foundry (gpt-5.4 배포)              │
         └──────────────────────────────────────────────────────────────┘
 ```
 
 | Part | 무엇을 하나 |
 |------|-------------|
+| **1** | **사전 준비 — Azure(Microsoft Foundry) 리소스·모델 배포 + 설치·`.env` (모든 실습의 전제)** |
 | 2~3 | Copilot CLI 설치 + `.github/` 설정 이해 |
 | 4 | Agent Framework 단일 에이전트 실행 |
 | 5~7 | Sequential / GroupChat / Concurrent Workflow |
@@ -115,6 +144,10 @@
 | 11 | 바이브 코딩 — 설정만으로 새 기능 자동 생성 |
 | 12 | 안전 가드레일 적용 |
 
+> 위 **⚡ 빠른 시작**은 Part 1을 통째로 끝내기 전에 시도할 수 있는 **Part 1의 최소 축약본**입니다.
+> (Azure 로그인 + 채팅 모델 1개 + `.env` 2줄) RAG·Search 등 나머지 준비를 생략할 뿐,
+> 사전 준비 자체를 건너뛰는 것은 아닙니다.
+
 ### 0.1 핵심 기술 6가지 — 기능과 장점
 
 | 기술 | 무엇인가 | 핵심 기능 | 장점 |
@@ -123,8 +156,8 @@
 | **Custom Agent**<br/>(`.github/agents/*.agent.md`) | 역할·도구가 제한된 전용 에이전트 | frontmatter로 `description`·`tools`·`model` 지정, `copilot --agent <name>` 실행 | 역할 격리(리뷰어=읽기전용)로 안전·집중, 재사용·팀 공유 |
 | **Skill**<br/>(`.github/skills/*/SKILL.md`) | Copilot에 주입하는 전문 지식·패턴 묶음 | `description`으로 트리거, 필요 시에만 본문 로드(점진적 공개) | 정확한 SDK 호출 유도, 토큰 절약, 환각 감소 |
 | **Instructions**<br/>(`.github/*instructions.md`) | 항상/조건부로 적용되는 규칙 | `copilot-instructions.md`(전역) + `instructions/*`(`applyTo` 글롭) | 일관된 스타일·규칙 자동 준수, 반복 지시 제거 |
-| **Microsoft Agent Framework** | 에이전트·멀티 에이전트 오케스트레이션 오픈소스 Python SDK (Semantic Kernel·AutoGen 통합 후속) | `Agent`, Handoff·GroupChat·Workflow 오케스트레이션, MCP 도구, 미들웨어·관측성 | 단일 SDK로 단순→복잡 확장, 모델/클라이언트 추상화, 표준 MCP 연동 |
-| **Microsoft Foundry**<br/>(Azure AI Foundry) | 모델 배포·평가·관측을 제공하는 Azure 통합 AI 플랫폼 | 프로젝트 단위 리소스, 모델 카탈로그·배포, `FoundryChatClient` 연결, Entra ID 인증 | 관리형 호스팅, 키 없는(`AzureCliCredential`) 엔터프라이즈 보안·거버넌스 |
+| **Microsoft Agent Framework**<br/>(MAF) | 에이전트·멀티 에이전트 오케스트레이션 오픈소스 Python SDK (Semantic Kernel·AutoGen 통합 후속) | `Agent`, Handoff·GroupChat·Workflow 오케스트레이션, MCP 도구, 미들웨어·관측성 | 단일 SDK로 단순→복잡 확장, 모델/클라이언트 추상화, 표준 MCP 연동 |
+| **Microsoft Foundry** | 모델 배포·평가·관측을 제공하는 Azure 통합 AI 플랫폼 | 프로젝트 단위 리소스, 모델 카탈로그·배포, `FoundryChatClient` 연결, Entra ID 인증 | 관리형 호스팅, 키 없는(`AzureCliCredential`) 엔터프라이즈 보안·거버넌스 |
 
 ---
 
@@ -143,9 +176,13 @@
 
 ### 1.2 Azure 리소스 프로비저닝
 
-예제 실행에는 **Azure AI Foundry 리소스·프로젝트·모델 배포**가 필요하고, 실습 6(RAG)에는
+> ⏱️ **예상 소요/비용**: 프로비저닝 + 첫 실행까지 약 **30~40분**. Foundry 모델·Azure AI Search는
+> **사용량 기반 과금**이며, 본 실습 정도의 호출량이면 보통 **수백 원~수천 원** 수준입니다.
+> 실습이 끝나면 [1.4 리소스 정리](#14-리소스-정리-실습-종료-후)로 리소스 그룹을 통째로 삭제해 비용을 막으세요.
+
+예제 실행에는 **Microsoft Foundry 리소스·프로젝트·모델 배포**가 필요하고, 실습 6(RAG)에는
 추가로 **Azure AI Search 서비스**가 필요합니다. 포털에서 만들어도 되지만, 아래 `az` CLI로
-한 번에 프로비저닝할 수 있습니다. (Foundry 프로젝트·모델은 [Azure AI Foundry 포털](https://ai.azure.com)에서도 생성 가능합니다.)
+한 번에 프로비저닝할 수 있습니다. (Foundry 프로젝트·모델은 [Microsoft Foundry 포털](https://ai.azure.com)에서도 생성 가능합니다.)
 
 ```bash
 az login
@@ -159,7 +196,7 @@ SEARCH=search-maf-lab            # Azure AI Search 서비스 이름
 
 az group create -n $RG -l $LOCATION
 
-# 1) Foundry(AIServices) 리소스 생성 (키리스 AAD 인증을 위해 custom-domain 지정)
+# 1) Foundry(AIServices) 리소스 생성 (키리스 Entra ID 인증을 위해 custom-domain 지정)
 az cognitiveservices account create \
   -n $FOUNDRY -g $RG -l $LOCATION \
   --kind AIServices --sku S0 --custom-domain $FOUNDRY --yes
@@ -194,7 +231,7 @@ az cognitiveservices account deployment create \
 az search service create -n $SEARCH -g $RG -l $LOCATION --sku basic \
   --auth-options aadOrApiKey
 
-# 6) 권한(RBAC) — 본인 계정에 데이터플레인 역할 부여 (키리스 인증)
+# 6) 권한(RBAC) — 본인 계정에 데이터플레인(리소스의 실제 데이터를 읽고 쓰는 작업) 역할 부여 (키리스 인증)
 ME=$(az ad signed-in-user show --query id -o tsv)
 ACC_ID=$(az cognitiveservices account show -n $FOUNDRY -g $RG --query id -o tsv)
 SEARCH_ID=$(az resource show -g $RG -n $SEARCH \
@@ -323,7 +360,7 @@ Copilot CLI/Chat는 작업 디렉토리의 `.github/` 설정과 `AGENTS.md`를 �
 
 > **Microsoft Agent Framework(MAF)** 는 에이전트 생성부터 멀티 에이전트 오케스트레이션까지 하나의
 > Python SDK로 제공하는 오픈소스 프레임워크입니다(Semantic Kernel·AutoGen의 통합 후속).
-> **Microsoft(Azure AI) Foundry** 는 모델을 배포·관리하는 Azure 플랫폼으로, MAF의
+> **Microsoft Foundry** 는 모델을 배포·관리하는 Azure 플랫폼으로, MAF의
 > `FoundryChatClient`가 여기에 연결합니다. 인증은 키 없이 `AzureCliCredential`(= `az login` 세션,
 > Entra ID)을 사용해 엔터프라이즈 보안을 유지합니다.
 
@@ -382,7 +419,7 @@ Microsoft Agent Framework는 ... (모델이 생성한 한국어 설명이 토큰
 
 | 요소 | 설명 |
 |------|------|
-| `FoundryChatClient` | Azure AI Foundry 프로젝트에 연결하는 채팅 클라이언트 |
+| `FoundryChatClient` | Microsoft Foundry 프로젝트에 연결하는 채팅 클라이언트 |
 | `Agent(client, name, instructions)` | 모델 + 역할 지시문의 단위 |
 | `agent.run(..., stream=True)` | 입력을 받아 응답을 토큰 단위로 스트리밍 생성 |
 
@@ -619,15 +656,16 @@ python src/05_mcp_agent.py
 ```
 
 이 예제는 **Azure AI Search 하이브리드(키워드 + 벡터) 검색**으로 지식 베이스를 검색합니다.
-처음 실행하면 인덱스를 자동 생성하고 문서를 임베딩하여 업로드하므로(자체 완결·멱등),
-별도 사전 준비 없이 바로 실행됩니다. 인증은 전부 키리스(`AzureCliCredential`)입니다.
+처음 실행하면 인덱스를 자동 생성하고 문서를 임베딩하여 업로드하므로(자체 완결·**멱등**: 여러 번
+실행해도 결과가 같아 중복 입력되지 않음), 별도 사전 준비 없이 바로 실행됩니다. 인증은 전부
+키리스(`AzureCliCredential`)입니다.
 
 ### 핵심 코드
 
 ```python
 # 0) 임베딩 차원을 모델에서 동적으로 확인 → 인덱스 자동 생성(없을 때만)
 dim = len(embed(["차원 확인"])[0])
-ensure_index(index_client, index_name, dim)        # HNSW + 코사인, ko.microsoft 분석기
+ensure_index(index_client, index_name, dim)        # HNSW(고속 근사 벡터 검색 인덱스) + 코사인, ko.microsoft 분석기
 
 # 1) 문서 임베딩 후 업로드(멱등 upsert) + 인덱싱 반영 대기
 seed_documents(search_client, embed)
@@ -651,8 +689,9 @@ agent = Agent(
 result = await agent.run(augmented_prompt)
 ```
 
-하이브리드 검색은 키워드 검색(BM25)과 벡터 검색을 RRF로 융합합니다. `VectorizedQuery`로 질문
-임베딩을 전달하고, `search_text`로 키워드 검색을 동시에 수행합니다. 핵심은 **(1) 검색 품질**과
+하이브리드 검색은 키워드 검색(**BM25**: 단어 일치 기반 고전 랭킹 알고리즘)과 벡터 검색(의미 유사도)을
+**RRF**(Reciprocal Rank Fusion, 두 검색의 순위를 합쳐 하나로 융합하는 방식)로 결합합니다.
+`VectorizedQuery`로 질문 임베딩을 전달하고, `search_text`로 키워드 검색을 동시에 수행합니다. 핵심은 **(1) 검색 품질**과
 **(2) "문서 밖 내용은 추측하지 말라"는 지시문**입니다. 이 둘이 RAG의 정확도를 결정합니다.
 
 ```bash
@@ -918,7 +957,7 @@ SDK v2로 재작성하지 않아도 관리형 인프라와 **자동 trace/monito
 
 - [GitHub Copilot CLI 공식 문서](https://docs.github.com/copilot/concepts/agents/about-copilot-cli)
 - [Microsoft Agent Framework (GitHub)](https://github.com/microsoft/agent-framework)
-- [Azure AI Foundry 문서](https://learn.microsoft.com/azure/foundry/)
+- [Microsoft Foundry 문서](https://learn.microsoft.com/azure/foundry/)
 - [Azure AI Projects SDK](https://learn.microsoft.com/python/api/overview/azure/ai-projects-readme)
 - [MCP 프로토콜 명세](https://modelcontextprotocol.io/)
 - [Azure MCP 서버](https://github.com/Azure/azure-mcp)
