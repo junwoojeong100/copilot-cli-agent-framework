@@ -146,7 +146,7 @@ curl -X POST "$BASE_URL/agents/maf-lab-single-agent/endpoint/protocols/openai/re
 `Dockerfile`(`python:3.13-slim` 기반, 포트 `8088` 노출)이 이 용도로 포함되어 있습니다.
 
 ```bash
-# init 시 배포 모드를 container로 지정 (그 외 인자는 코드 모드와 동일, $MANIFEST는 위와 동일)
+# 코드 모드와 차이는 --deploy-mode 뿐입니다. 런타임은 Dockerfile이 정의하므로 --runtime은 생략합니다.
 azd ai agent init --no-prompt \
   -m "$MANIFEST" \
   --agent-name maf-lab-single-agent \
