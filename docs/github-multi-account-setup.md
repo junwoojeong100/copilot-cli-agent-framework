@@ -9,9 +9,11 @@
 | 용도 | 계정 | 활성 상태 |
 |------|------|-----------|
 | Git push/pull, GitHub CLI | `<git-account>` | Active |
-| GitHub Copilot | `<copilot-account>` | Inactive |
+| GitHub Copilot용 GitHub 계정 | `<copilot-account>` | `gh auth status` 기준 Inactive 가능 |
 
-두 계정 모두 `gh auth login`으로 등록하되, **active 계정**만 Git 작업에 사용되고 Copilot은 별도의 inactive 계정 토큰을 사용한다.
+두 계정을 `gh auth login`으로 등록해도, **active 계정** 개념은 `gh`의 GitHub CLI 동작에만 적용됩니다.
+Copilot CLI 인증은 `gh` active/inactive 상태와 **독립적**이므로, 원하는 계정으로 Copilot CLI에
+별도 로그인(`/login`)하거나 `COPILOT_GITHUB_TOKEN` 같은 인증 정보를 따로 설정해야 합니다.
 
 ---
 
@@ -147,7 +149,8 @@ printf 'protocol=https\nhost=github.com\n\n' | git credential fill
 
 ## 주의 사항
 
-1. **Copilot 인증은 자동**: `<copilot-account>`가 inactive여도 Copilot은 해당 계정의 토큰을 독립적으로 사용한다.
+1. **Copilot 인증은 별도 로그인 필요**: `<copilot-account>`를 Copilot CLI에서 쓰려면 그 계정으로
+   `/login`을 수행하거나 해당 계정의 `COPILOT_GITHUB_TOKEN`을 명시적으로 설정해야 합니다.
 2. **토큰 갱신**: `gh auth refresh --user <account>`로 만료된 토큰을 갱신할 수 있다.
 3. **리포별 계정 분리가 필요한 경우**: 특정 리포에서 다른 계정을 쓰려면 로컬 `.git/config`에 별도 credential helper를 설정한다.
 4. **SSH를 사용하는 경우**: 이 가이드는 HTTPS 기반이다. SSH를 쓸 때는 `~/.ssh/config`에 Host alias를 설정하는 방식을 사용한다.

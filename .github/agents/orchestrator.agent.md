@@ -10,8 +10,9 @@ appropriate collaboration pattern, and then drives that pattern's workflow to co
 
 1. Analyze the user's request
 2. Select the best-fit collaboration pattern
-3. Execute the selected pattern's workflow yourself, phase by phase (각 단계의 역할을 순차적으로 수행)
-4. Delegate to a specialized custom agent when one exists for the phase
+3. Delegate to a specialized pattern agent first when one exists
+4. Only when no dedicated pattern agent exists, execute the workflow inline phase by phase
+   while still delegating sub-tasks that already have specialized agents
    (예: 코드 리뷰는 `reviewer`, 환경/런타임 진단은 `debugger`)
 
 ## Available Patterns
@@ -61,18 +62,19 @@ If the intent is unclear, ask the user:
 2. **Analyze** — 요청의 핵심 의도를 파악한다
 3. **Select** — 위 Heuristics에 따라 패턴을 선택한다
 4. **Announce** — 선택한 패턴과 이유를 한 줄로 알려준다
-5. **Execute** — 아래 두 가지 방법 중 하나로 패턴을 실행한다:
-   - **위임(권장)**: 해당 패턴의 전용 에이전트 파일(`.github/agents/<name>.agent.md`)을
-     `task` 도구로 스폰하여 위임한다.
-   - **인라인**: 전용 에이전트를 사용할 수 없는 경우, 선택한 패턴의 각 단계(역할)를
-     순서대로 직접 수행한다. 전용 커스텀 에이전트가 있는 단계(코드 리뷰 → `reviewer`,
-     환경/런타임 진단 → `debugger`)는 해당 에이전트에 위임한다.
+5. **Execute** — 아래 단일 정책으로 패턴을 실행한다:
+   - **위임 우선**: 선택한 패턴의 전용 에이전트 파일(`.github/agents/<name>.agent.md`)이
+     있으면 `task` 도구로 해당 에이전트에 위임한다.
+   - **인라인 fallback**: 전용 패턴 에이전트가 없을 때만 선택한 패턴의 각 단계(역할)를
+     순서대로 직접 수행한다. 이때도 전용 커스텀 에이전트가 있는 단계(코드 리뷰 →
+     `reviewer`, 환경/런타임 진단 → `debugger`)는 해당 에이전트에 위임한다.
 
 ## Rules
 
 - **패턴의 단계 순서를 정확히 따른다.** 계획 → 실행 → 검증처럼 각 단계의 역할을 명확히 구분해 수행한다.
 - 전용 패턴 에이전트(`planner_executor`, `debate_critic`, `generator_evaluator`, `code_generation`)가
-  있을 경우 `task` 도구로 위임하여 실행한다. 직접 시뮬레이션하거나 역할극 하지 말 것.
+  있으면 항상 `task` 도구로 위임하여 실행한다. 전용 패턴 에이전트가 없을 때만 인라인으로
+  직접 수행하며, 직접 시뮬레이션하거나 역할극 하지 말 것.
 - 리뷰·진단처럼 전용 에이전트가 정의된 작업은 직접 흉내내지 말고 해당 에이전트에 위임한다.
 - 사용자가 명시적으로 패턴을 지정하면 분석 없이 바로 해당 패턴을 사용한다.
 

@@ -12,7 +12,7 @@
 
 두 실습은 같은 저장소를 공유하지만 **학습 경로와 필수 전제는 독립적**입니다. 아래는 ① 실습입니다.
 
-이 문서(①)는 `src/`의 6가지 Agent Framework 예제(4가지 멀티 에이전트 패턴 + MCP 도구 연동 + RAG, RAG는 하이브리드·Foundry IQ 2가지 변형)를
+이 문서(①)는 `src/`의 핵심 6가지 Agent Framework 예제(4가지 멀티 에이전트 패턴 + MCP 도구 연동 + RAG, 06번은 하이브리드·Foundry IQ 2가지 변형 포함, 총 7개 스크립트)를
 다룹니다. 각 예제는 Python으로 작성되어 `FoundryChatClient`로 Microsoft Foundry에 연결하며, 루트에는
 에이전트 공통 가드레일 `AGENTS.md`가 있습니다. (Copilot CLI·`.github/` 설정·MCP 개발 도구는 ② 실습에서 다룹니다.)
 
@@ -28,8 +28,8 @@ Part 2부터 예제를 하나씩 실행하며 단계적으로 확장하세요.
 
 | 대상 | 권장 범위 |
 |------|-----------|
-| 🟢 **처음 시작하는 분** | **Part 1 → Part 2 → … → Part 7** (단일 에이전트부터 RAG까지 핵심 6개 예제 `01`~`06`) |
-| 🔴 **심화/배포까지** | 위 + **Part 8 → Part 9** (Foundry SDK v2, Hosted Agent 배포) |
+| 🟢 **처음 시작하는 분** | **Part 1 → Part 2 → … → Part 7** (단일 에이전트부터 RAG까지 핵심 6가지 예제 `01`~`06`, 06번은 2가지 변형) |
+| 🔴 **심화/배포까지** | 위 + **Part 8 → Part 9** (Foundry SDK v2, Microsoft Foundry Hosted Agent (Hosted Agent) 배포) |
 | 🟣 **GitHub Copilot CLI로 직접 개발** | **별도 독립 실습** → [GitHub Copilot CLI 랩](docs/copilot-cli-lab.md) (CLI 설치 · `.github/` 설정 · 멀티 에이전트 패턴 · 바이브 코딩 · 가드레일) |
 
 ---
@@ -86,7 +86,7 @@ Part 2부터 예제를 하나씩 실행하며 단계적으로 확장하세요.
     │
     │   # ── 아래 두 폴더는 (심화) 입니다. 처음에는 건너뛰어도 됩니다 ──
     ├── foundry_sdk_v2/             # (심화) Foundry Agent SDK v2 생성 + MAF 오케스트레이션 (01~06 + 06 Foundry IQ 변형 미러, Part 8)
-    └── hosted_agents/              # (심화) MAF 에이전트·워크플로우를 Foundry Hosted Agent로 배포 (01~06 + 06 Foundry IQ 변형, Part 9)
+    └── hosted_agents/              # (심화) MAF 에이전트·워크플로우를 Hosted Agent로 배포 (01~06 + 06 Foundry IQ 변형, Part 9)
 ```
 
 ---
@@ -140,7 +140,7 @@ Part 2부터 예제를 하나씩 실행하며 단계적으로 확장하세요.
 
 | 도구 | 용도 | 설치 |
 |------|------|------|
-| **Python 3.12+** | Agent Framework 코드 (이 랩은 3.12 기준으로 검증) | <https://python.org> |
+| **Python 3.10 이상 (권장: 3.12+)** | Agent Framework 코드 (지원 하한 3.10+, 이 랩은 3.12 기준으로 검증) | <https://python.org> |
 | **Azure CLI 2.81.0+** | Microsoft Foundry 인증(`az login` 키리스) | `az upgrade --yes` |
 
 > 💡 이 랩은 **Python 코드 실행**만으로 완결됩니다. GitHub Copilot CLI는 필요하지 않습니다.
@@ -267,7 +267,21 @@ cp .env.example .env        # 아래 값 입력
 az login                    # 예제는 AzureCliCredential로 이 로그인 세션을 사용
 ```
 
-`.env` 값 (예제 01~05는 상단 2줄만 있으면 동작, 예제 06 RAG는 전체 필요):
+컨텍스트별 주요 환경 변수는 다음과 같습니다.
+
+| 변수명 | 설명 | 사용 컨텍스트 |
+|--------|------|--------------|
+| `PROJECT_ENDPOINT` | Azure AI Foundry 프로젝트 엔드포인트 | 로컬 실습 전체 |
+| `MODEL_DEPLOYMENT_NAME` | 사용할 모델 배포 이름 | 로컬 실습 (선택, 기본값 있음) |
+| `SEARCH_SERVICE_ENDPOINT` | Azure AI Search 서비스 엔드포인트 | RAG 실습 (06번) |
+| `SEARCH_INDEX_NAME` | 검색 인덱스 이름 | RAG 실습 (06번) |
+| `SEARCH_KNOWLEDGE_BASE_NAME` | Foundry IQ 지식 기반 이름 | RAG IQ 실습 (06_foundry_iq) |
+
+> 참고: 로컬 Python 예제 `src/06_rag_agent_foundry_iq.py`는 `SEARCH_INDEX_NAME_IQ`를 사용해
+> 지식 베이스를 자동 생성합니다. `SEARCH_KNOWLEDGE_BASE_NAME`은 Part 9 Hosted Agent의
+> `06_rag_agent_foundry_iq/` 배포 예제에서 사용합니다.
+
+`.env` 예시 값 (예제 01~05는 상단 2줄만 있으면 동작, 예제 06 RAG는 전체 필요):
 
 ```bash
 # 예제 01~06 공통 (Foundry 채팅)
@@ -337,10 +351,10 @@ async for update in agent.run("Microsoft Agent Framework가 무엇인가요?", s
 print()
 ```
 
-> 💡 **스트리밍 출력**: 모든 예제(01~06)는 답변을 **토큰 단위로 실시간 출력**해 생성 과정을
-> 눈으로 볼 수 있습니다. 공통 로직은 [`src/_streaming.py`](src/_streaming.py)에 모아 두었습니다.
-> - `stream_agent(agent, prompt)` — 단일 에이전트 응답을 토큰 단위로 출력하고 전체 텍스트를 반환(01·05·06)
-> - `stream_workflow(workflow, message)` — 워크플로우를 스트리밍 실행해 발화자별로 출력(02 Sequential·03 GroupChat·04 Concurrent)
+> 💡 **스트리밍 출력**: 예제별 스트리밍 방식은 두 가지입니다. 공통 로직은
+> [`src/_streaming.py`](src/_streaming.py)에 모아 두었습니다.
+> - `stream_agent(agent, prompt)` — 단일 에이전트 응답을 **토큰 단위**로 출력하고 전체 텍스트를 반환(01·05·06)
+> - `stream_workflow(workflow, message)` — 워크플로우를 스트리밍 실행해 **참여자별 완성 응답 블록**을 순서대로 출력(02 Sequential·03 GroupChat·04 Concurrent)
 
 실행:
 
@@ -563,7 +577,7 @@ async with learn_mcp:
 | 항목 | 설명 |
 |------|------|
 | `MCPStreamableHTTPTool` | HTTP(SSE) 기반 원격 MCP 서버에 연결하는 도구 래퍼 |
-| `headers={...}` | 인증이 필요한 서버는 `{"Authorization": "Bearer ..."}` 추가 |
+| `header_provider` / 커스텀 `http_client` | 인증이 필요한 서버는 헤더를 직접 넘기지 말고 `header_provider` 콜백 또는 커스텀 `http_client`로 `Authorization` 등을 설정 |
 | `async with mcp_tool:` | 세션 컨텍스트. 진입 시 도구 목록 로드, 종료 시 연결 정리 |
 | `tools=` | 에이전트가 사용할 도구 전달. LLM이 필요 시 스스로 호출 |
 
@@ -612,7 +626,7 @@ dim = len(embed(["차원 확인"])[0])
 ensure_index(index_client, index_name, dim)        # HNSW(고속 근사 벡터 검색 인덱스) + 코사인, ko.microsoft 분석기
 
 # 1) 문서 임베딩 후 업로드(멱등 upsert) + 인덱싱 반영 대기
-seed_documents(search_client, embed)
+await seed_documents(search_client, embed)
 
 # 2) 검색: 질문을 임베딩해 하이브리드(BM25 + 벡터) 검색
 docs = retrieve(search_client, embed, question, top_k=2)
@@ -758,7 +772,7 @@ python src/06_rag_agent_foundry_iq.py
 ## Part 9. (심화) Hosted Agent 배포 — MAF 에이전트·워크플로우를 관리형으로
 
 Part 8이 **에이전트 "생성"을 SDK v2로** 바꾸는 접근이라면, 이 파트는 코드를 **그대로 둔 채**
-MAF 에이전트·워크플로우를 **Microsoft Foundry Hosted Agent**(관리형 컨테이너)로 **배포**합니다.
+MAF 에이전트·워크플로우를 **Hosted Agent**(관리형 컨테이너)로 **배포**합니다.
 SDK v2로 재작성하지 않아도 관리형 인프라와 **자동 trace/monitoring**을 그대로 얻는 것이 핵심입니다.
 `ResponsesHostServer` 호스팅 패턴, 7개 예제 목록(06은 하이브리드·Foundry IQ 2가지 RAG 변형), `azd` 배포 흐름, 기존 실습과의 차이 등 자세한
 내용은 별도 문서로 분리했습니다.

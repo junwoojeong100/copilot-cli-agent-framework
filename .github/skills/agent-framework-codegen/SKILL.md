@@ -135,11 +135,12 @@ for output in result.get_outputs():   # 최종 응답만 추출
 |--------|------|
 | `HandoffBuilder(name=..., participants=...)` | 워크플로우 빌더 생성 (키워드 인자) |
 | `.with_start_agent(agent)` | 시작(접수) 에이전트 지정 |
-| `.add_handoff(from, [to...])` | 위임 가능 대상 명시 → LLM에 `handoff_to_*` 도구 노출 |
+| `.add_handoff(from, [to...])` | 세부 라우팅 제어가 필요할 때 특정 위임 경로를 제한 |
 | `.with_autonomous_mode()` | 사용자 입력 없이 자동 진행 |
 | `.build()` | 워크플로우 객체 생성 |
 
-> **핵심**: `add_handoff`로 대상을 명시하지 않으면 handoff 도구가 노출되지 않는다.
+> **핵심**: 세부 라우팅 제어가 필요할 때 `add_handoff`를 사용한다.
+> 생략 시 기본 mesh topology가 적용되어 모든 에이전트 간 handoff가 허용된다.
 > 또한 **모든 참여 Agent**에 `require_per_service_call_history_persistence=True`를 지정해야 한다
 > (누락 시 `build()`가 `ValueError`를 발생시킨다).
 
@@ -160,13 +161,13 @@ def select_next_speaker(state: GroupChatState) -> str:
 workflow = GroupChatBuilder(
     participants=[planner_agent, developer_agent, designer_agent],
     selection_func=select_next_speaker,
-    max_rounds=6,          # 무한 토론 방지 (필수)
+    max_rounds=6,          # 무한 토론 방지 (권장)
 ).build()
 result = await workflow.run("토론 주제")
 ```
 
 - `GroupChatState`: `current_round`, `participants`, `conversation` 제공.
-- `max_rounds`로 수렴 조건을 둔다.
+- `max_rounds` 사용을 권장한다(미설정 시 `termination_condition`으로 종료 제어 가능).
 - 참여자 `name`은 도구명이 아니므로 한국어도 가능하다(Handoff와 다른 점).
 - 최종 토론 내용은 `result.get_outputs()`(종료 메시지)가 아니라 이벤트의 `AgentExecutorResponse`에서
   추출한다. `from agent_framework import AgentExecutorResponse` 후 `isinstance` 필터로 발언을 모은다.
@@ -243,11 +244,12 @@ for output in result.get_outputs():
 ```python
 from agent_framework import Agent, MCPStreamableHTTPTool
 
-# HTTP(SSE) 원격 MCP 서버. 인증 필요 시 headers={"Authorization": "Bearer ..."}
+# HTTP(SSE) 원격 MCP 서버. 인증 필요 시 header_provider 또는 커스텀 http_client 사용
 learn_mcp = MCPStreamableHTTPTool(
     name="MicrosoftLearn",
     url="https://learn.microsoft.com/api/mcp",
     description="Microsoft/Azure 공식 문서 검색",
+    header_provider=lambda: {"Authorization": f"Bearer {token}"},
 )
 
 # async with 안에서만 세션 활성화 (진입=connect, 종료=close)
@@ -302,13 +304,12 @@ result = await agent.run(augmented)          # 3) 생성
 |------|-------------|
 | `PROJECT_ENDPOINT 환경 변수를 설정해주세요` | 루트 `.env` 작성 + `load_dotenv` 경로 확인 |
 | 인증 실패 | `az login` 재실행, `az account set`으로 구독 선택 |
-| `handoff_to_*` 도구가 안 보임 | `add_handoff(from, [to...])` 호출 누락 |
+| 의도치 않은 handoff 경로가 보임 | 기본 mesh topology 적용 상태 — 필요한 경로만 허용하려면 `add_handoff(from, [to...])`로 제한 |
 | `400 Invalid 'tools[0].name'` (handoff) | Agent `name`에 한글/공백 사용 — handoff 도구명은 ASCII(`^[a-zA-Z0-9_.-]+$`)만 허용. name을 영문으로 변경 |
 | Handoff `build()`가 `ValueError`(persistence) | 일부 Agent에 `require_per_service_call_history_persistence=True` 누락 — 모든 참여 Agent에 지정 |
-| GroupChat이 끝나지 않음 | `max_rounds` 미설정 |
+| GroupChat이 끝나지 않음 | `max_rounds` 또는 `termination_condition` 미설정 |
 | GroupChat 결과가 종료 메시지만 나옴 | `get_outputs()`는 종료 메시지만 반환 — 토론 내용은 이벤트의 `AgentExecutorResponse`에서 추출 |
 | `WorkflowBuilder` `Case` 조건이 항상 첫 케이스로만 분기됨 | 조건은 **순서대로 평가**되며 첫 번째 `True`에서 멈춤 — 조건 순서를 좁은 것부터 배치할 것 |
 | MCP 도구를 호출하지 않음 | `tools=` 전달 누락, 또는 `async with mcp_tool:` 밖에서 실행 |
 | RAG가 엉뚱한 답을 함 | 검색 결과가 빈약하거나 "문서 밖 추측 금지" 지시문 누락 |
 | `ImportError: agent_framework...` | `pip install -U agent-framework`, 가상환경 활성화 확인 |
-
