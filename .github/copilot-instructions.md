@@ -5,8 +5,8 @@
 
 ## 프로젝트 개요
 
-이 프로젝트는 **GitHub Copilot CLI**로 **Microsoft Agent Framework** 기반 멀티 에이전트를
-단계별로 학습하는 실습 랩입니다. `src/` 디렉토리에 6개 주제, 총 7개 콘솔 스크립트 예제를 구현합니다:
+이 프로젝트는 **Microsoft Agent Framework** 기반 멀티 에이전트를 단계별로 학습하는 실습
+랩입니다. `src/` 디렉토리에 6개 주제, 총 7개 콘솔 스크립트 예제를 구현합니다:
 
 1. **단일 에이전트** (`01_single_agent.py`) — 하나의 에이전트가 질문에 응답
 2. **순차(Sequential) 워크플로우** (`02_sequential_workflow.py`) — 분석가→작가→편집자 파이프라인
