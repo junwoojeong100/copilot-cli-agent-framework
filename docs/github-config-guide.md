@@ -68,7 +68,7 @@ Copilot CLI/Chat는 작업 디렉토리의 `.github/` 설정과 `AGENTS.md`를 �
 | **파일 패턴 인스트럭션** | `.github/instructions/*.instructions.md` | 없음 | ✅ 자동 — `applyTo` 패턴에 매칭되는 파일 작업 시 포함 |
 | **스킬** | `.github/skills/*/SKILL.md` | 채팅에서 `/스킬명` | ✅ 자동 + 🔘 수동 — 관련 주제 감지 시 자동 로드, 명시적 호출도 가능 |
 | **재사용 프롬프트** | `.github/prompts/*.prompt.md` | 채팅에서 `/프롬프트명` | 🔘 수동 |
-| **커스텀 에이전트** | `.github/agents/*.agent.md` | 채팅에서 `@에이전트명` / CLI `--agent` | 🔘 수동 |
+| **커스텀 에이전트** | `.github/agents/*.agent.md` | 채팅에서 `/agent` 선택 또는 CLI `--agent <name>` | 🔘 수동 |
 
 ## 언제, 어떤 파일 유형을 사용해야 하나요?
 
@@ -89,7 +89,7 @@ Copilot CLI/Chat는 작업 디렉토리의 `.github/` 설정과 `AGENTS.md`를 �
 |------|:---:|------|
 | `copilot-instructions.md` | ✅ 자동 | 프로젝트 기술 스택·코드 패턴·컨벤션이 모든 요청에 반영 |
 | `instructions/*.instructions.md` | ✅ 자동 | Python 컨벤션, Azure 보안, 한국어, Git 커밋 규칙이 자동 적용 |
-| `skills/*/SKILL.md` | ✅ `/skills` | MAF 코드 생성 패턴을 명시적으로 참조 가능 |
+| `skills/*/SKILL.md` | ✅ `/skills`, `/스킬명` | `/skills`로 목록 확인·관리, 스킬 직접 호출은 `/스킬명` 또는 프롬프트 내 명시로 가능 |
 | `prompts/*.prompt.md` | ⚠️ 직접 호출 불가 | 프롬프트 내용을 자연어로 풀어서 요청 (예: "add-agent 프롬프트 패턴으로 새 예제를 만들어줘") |
 | `agents/*.agent.md` | ✅ `/agent` | `/agent` 명령으로 에이전트를 선택·전환 (예: orchestrator, reviewer, debugger) |
 
@@ -102,7 +102,7 @@ Copilot CLI/Chat는 작업 디렉토리의 `.github/` 설정과 `AGENTS.md`를 �
 
 | 파일 | `applyTo` | 역할 |
 |------|-----------|------|
-| `instructions/python.instructions.md` | `**/*.py` | Python 3.12 가상환경, 의존성 관리, 코드 컨벤션(Google docstring·타입 힌트·import 순서) |
+| `instructions/python.instructions.md` | `**/*.py` | Python 3.10+ 가상환경, 의존성 관리, 코드 컨벤션(Google docstring·타입 힌트·import 순서) |
 | `instructions/azure.instructions.md` | `**/*.py` | 키리스 인증(`AzureCliCredential`), `.env` 관리, 민감정보 보안 규칙 |
 | `instructions/korean.instructions.md` | `**` | 한국어 응답·주석·docstring, 변수명은 영어, 기술 용어 병기 |
 | `instructions/git-commit.instructions.md` | `**` | 영문 Conventional Commits, 트레일러 규칙 |
@@ -114,7 +114,7 @@ Copilot CLI/Chat는 작업 디렉토리의 `.github/` 설정과 `AGENTS.md`를 �
 
 | 파일 | 역할 |
 |------|------|
-| `copilot-instructions.md` | 프로젝트 전체 규칙 — 6개 예제 정의, SDK import 경로, `FoundryChatClient`/`SequentialBuilder` 등 API 패턴 |
+| `copilot-instructions.md` | 프로젝트 전체 규칙 — 6개 주제(총 7개 스크립트) 정의, SDK import 경로, `FoundryChatClient`/`SequentialBuilder` 등 API 패턴 |
 | `prompts/add-agent.prompt.md` | 새 에이전트·예제 추가 템플릿 (`NN_<name>.py` 규칙, `Agent`/워크플로우 구성) |
 | `prompts/review-code.prompt.md` | 코드 리뷰 요청 — 패턴 준수·보안·비동기 정합성 체크리스트 |
 | `skills/agent-framework-codegen/SKILL.md` | Agent Framework 코드 생성 스킬 — import 경로, 에이전트·워크플로우·MCP·RAG 생성 패턴 |
@@ -135,7 +135,7 @@ Copilot CLI/Chat는 작업 디렉토리의 `.github/` 설정과 `AGENTS.md`를 �
 │   ├── korean.instructions.md       ← 모든 파일 편집 시 자동
 │   └── git-commit.instructions.md   ← 모든 파일 편집 시 자동
 │
-├── skills/                          ← 🔒 자동 로드 + /이름으로 수동 호출
+├── skills/                          ← 🔒 자동 로드 + /스킬명으로 수동 호출
 │   └── agent-framework-codegen/     ← MAF SDK 코드 생성 시
 │       └── SKILL.md
 │

@@ -18,7 +18,7 @@ tools: ["read", "search", "execute"]
 문제가 보고되면 다음 순서로 점검한다:
 
 ### 1단계: 환경 기본 점검
-- Python 버전 (`python --version` → 3.10+ 필요)
+- Python 버전 (`python --version` → 3.10+ 지원, 3.12 권장/검증)
 - 가상환경 활성화 여부 (`which python` → `.venv/` 경로인지)
 - 의존성 설치 (`pip list` → `agent-framework`, `azure-identity`, `python-dotenv` 등 존재 여부)
 

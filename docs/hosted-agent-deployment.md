@@ -1,13 +1,13 @@
-# (심화) Hosted Agent 배포 — MAF 에이전트·워크플로우를 관리형으로
+# (심화) Microsoft Foundry Hosted Agent (Hosted Agent) 배포 — MAF 에이전트·워크플로우를 관리형으로
 
-> 코드를 그대로 둔 채 MAF 에이전트·워크플로우를 Microsoft Foundry Hosted Agent(관리형 컨테이너)로
+> 코드를 그대로 둔 채 MAF 에이전트·워크플로우를 Hosted Agent(관리형 컨테이너)로
 > 배포하는 심화 가이드입니다.
 
 ---
 
 [Foundry Agent SDK v2 심화 가이드](foundry-sdk-v2-orchestration.md)가 **에이전트 "생성"을 SDK v2로**
 바꾸는 접근이라면, 이 가이드는 코드를 **그대로 둔 채** MAF 에이전트·워크플로우를
-**Microsoft Foundry Hosted Agent**(관리형 컨테이너)로 **배포**합니다. SDK v2로 재작성하지
+**Hosted Agent**(관리형 컨테이너)로 **배포**합니다. SDK v2로 재작성하지
 않아도 관리형 인프라와 **자동 trace/monitoring**을 그대로 얻는 것이 핵심입니다.
 
 > 위치: [`src/hosted_agents/`](../src/hosted_agents/) · 의존성: `agent-framework-foundry-hosting`
@@ -50,7 +50,8 @@ server.run()
 
 ```bash
 # ① 로컬 테스트용 패키지 설치 (배포 빌드는 각 폴더의 requirements.txt 사용)
-pip install agent-framework-core agent-framework-foundry agent-framework-foundry-hosting mcp
+#    Sequential/GroupChat/Concurrent 예제는 orchestrations 패키지가 추가로 필요합니다.
+pip install agent-framework-core agent-framework-orchestrations agent-framework-foundry agent-framework-foundry-hosting mcp
 azd ext install azure.ai.agents && azd auth login
 
 # ② azd ai agent init 은 매니페스트 디렉터리와 분리된 빈 폴더에서 실행해야 합니다.
@@ -100,7 +101,8 @@ Application Insights에서 토큰·비용 메트릭을 확인할 수 있습니�
 ## 배포된 에이전트 원격 호출·테스트
 
 배포가 끝나면 `azd deploy` 출력에 **포털 플레이그라운드 링크**와 **전용 에이전트 엔드포인트**
-(`.../api/projects/<project>/agents/<name>/versions/<n>`)가 표시됩니다. 다음 방법으로 원격
+(`.../api/projects/<project>/agents/<name>/endpoint/protocols/openai/responses?api-version=v1`)가 표시됩니다.
+다음 방법으로 원격
 에이전트(단일·워크플로우 공통)를 호출·검증합니다.
 
 ### 1) azd로 상태 확인 → 호출 → 로그 스트리밍
@@ -187,6 +189,6 @@ azd deploy --no-prompt
 > 각 폴더의 `main.py`는 Foundry 표준 변수를 먼저 읽고, 없으면 기존 이름으로 폴백하므로
 > 로컬 테스트 시 루트 `.env`를 그대로 쓸 수 있습니다. 각 폴더의 `.env.example`을 참고하세요.
 
-> ⚠️ Hosted Agents는 현재 **preview**입니다. 코드(ZIP) 모드는 Docker가 불필요하고, 컨테이너 모드만
+> ⚠️ Hosted Agent 배포는 현재 **preview**입니다. 코드(ZIP) 모드는 Docker가 불필요하고, 컨테이너 모드만
 > `linux/amd64` 이미지가 필요합니다(위 "[(대안) 컨테이너 방식으로 배포](#대안-컨테이너-방식으로-배포)" 참고).
 > 폴더별 단계 예시는 각 폴더의 `README.md`도 함께 참고하세요.

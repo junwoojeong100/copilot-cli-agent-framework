@@ -156,12 +156,14 @@ PAT를 사용해 인증할 수도 있습니다:
 3. 환경변수로 설정:
 
 ```bash
+export COPILOT_GITHUB_TOKEN="your-token-here"
+# 또는
 export GH_TOKEN="your-token-here"
 # 또는
 export GITHUB_TOKEN="your-token-here"
 ```
 
-> `GH_TOKEN`이 `GITHUB_TOKEN`보다 우선 적용됩니다.
+> 토큰 우선순위는 `COPILOT_GITHUB_TOKEN > GH_TOKEN > GITHUB_TOKEN`입니다.
 
 ---
 
@@ -209,7 +211,7 @@ Claude Sonnet, Claude Opus, GPT-5 등 다양한 모델 목록에서 선택할 �
 
 | 단축키 | 기능 |
 |--------|------|
-| `Ctrl+S` | 입력을 유지하면서 명령 실행 |
+| `Ctrl+S` | 현재 프롬프트 임시 저장/복원 (stash/pop) |
 | `Ctrl+T` | 모델 추론 과정 표시 토글 |
 | `Ctrl+O` | 최근 타임라인 확장 (입력 없을 때) |
 | `Ctrl+E` | 전체 타임라인 확장 (입력 없을 때) |
@@ -243,13 +245,14 @@ Claude Sonnet, Claude Opus, GPT-5 등 다양한 모델 목록에서 선택할 �
 | 플래그 | 설명 |
 |--------|------|
 | `--agent <name>` | 특정 에이전트를 지정하여 실행 |
+| `--autopilot` | Autopilot 모드로 바로 실행 |
 | `--yolo` | 자동 승인 모드 — 도구 실행을 매번 확인하지 않음 |
-| `--experimental` | 실험적 기능 활성화 (Autopilot 등) |
+| `--experimental` | 기타 실험적 기능 활성화 |
 | `--banner` | 시작 시 애니메이션 배너 다시 표시 |
 
 ```bash
-# 예시: 에이전트 + 자동 승인 + 실험적 기능
-copilot --agent orchestrator --yolo --experimental
+# 예시: 에이전트 + 자동 승인 + Autopilot
+copilot --agent orchestrator --yolo --autopilot
 ```
 
 > ⚠️ `--yolo` 모드는 편리하지만, 모든 파일 변경과 명령어가 자동 실행됩니다. 신뢰할 수 있는 환경에서만 사용하세요.
@@ -323,6 +326,7 @@ copilot --agent orchestrator --yolo --experimental
 | 커맨드 | 설명 |
 |--------|------|
 | `/help` | 도움말 표시 |
+| `/autopilot` | Autopilot 모드 전환 |
 | `/changelog` | CLI 버전별 변경 로그 (`summarize` 추가 시 AI 요약) |
 | `/feedback` | CLI에 대한 피드백 제출 |
 | `/theme` | 색상 모드 설정 |
@@ -538,11 +542,11 @@ Copilot CLI는 다양한 위치의 인스트럭션 파일을 자동으로 인식
 ### 적용 우선순위
 
 인스트럭션 파일이 여러 개 존재할 때, 모든 파일이 동시에 적용됩니다.
-단, 리포지토리 레벨 인스트럭션이 유저 레벨보다 구체적이므로, 충돌 시 리포지토리 레벨이 우선됩니다.
+다만 충돌이 발생해도 단순한 우선순위로 결과가 항상 보장되지는 않으며, 여러 인스트럭션의 조합에 따라 동작이 비결정적일 수 있습니다.
 
 ```
-유저 글로벌 (~/.copilot/)  →  리포지토리 (.github/)  →  디렉토리별 (instructions/)
-               낮음                    ↑                       높음
+유저 글로벌 (~/.copilot/) + 리포지토리 (.github/) + 디렉토리별 (instructions/)
+→ 여러 인스트럭션이 함께 적용되며, 충돌 시 단일 우선순위로 단정할 수 없음
 ```
 
 ### 인스트럭션 확인
@@ -551,7 +555,7 @@ Copilot CLI는 다양한 위치의 인스트럭션 파일을 자동으로 인식
 /instructions
 ```
 
-이 프로젝트에서는 [`AGENTS.md`](../AGENTS.md)를 통해 모든 에이전트에 공통 가드레일(예: `git push` 금지)을 적용하고 있습니다.
+이 프로젝트에서는 [`AGENTS.md`](../AGENTS.md)를 통해 모든 에이전트에 공통 가드레일(예: 보호 브랜치 직접 `git push` 및 force push 금지, 기능 브랜치 push는 허용)을 적용하고 있습니다.
 
 ---
 
@@ -612,20 +616,20 @@ winget upgrade GitHub.Copilot
 /research React Server Components와 기존 SSR의 차이점
 ```
 
-### Autopilot 모드 (Experimental)
+### Autopilot 모드
 
-Experimental 모드를 활성화하면 Autopilot 모드를 사용할 수 있습니다.
+Autopilot은 현재 독립 실행 모드로 지원되며, `/autopilot` 또는 `--autopilot`으로 활성화할 수 있습니다.
 에이전트가 작업이 완료될 때까지 자동으로 진행합니다.
 
 ```bash
-# 실험 모드 활성화 (첫 번째 방법)
-copilot --experimental
+# 실행 시 바로 Autopilot 사용
+copilot --autopilot
 
-# 또는 CLI 내에서
-/experimental
+# 또는 CLI 내에서 전환
+/autopilot
 ```
 
-활성화 후 `Shift+Tab`으로 Autopilot 모드를 선택합니다.
+필요에 따라 인터랙티브 세션 안에서 `/autopilot`으로 전환하거나, 실행 시 `--autopilot` 플래그로 바로 시작할 수 있습니다.
 
 ### 컨텍스트 관리
 

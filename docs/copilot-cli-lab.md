@@ -111,7 +111,7 @@ Copilot이 파일을 읽고(필요하면 실행 승인을 먼저 요청) 한국�
 | Plan(계획 우선) ↔ Interactive 모드 전환 | `Shift+Tab` |
 | 모델 변경 | `/model` (Claude Sonnet/Opus, GPT-5 등) |
 | 전체 슬래시 커맨드 보기 | `/help` |
-| 세션 종료 | `/exit` 또는 `Ctrl+C` 두 번 |
+| 세션 종료 | `Ctrl+D` 또는 `Ctrl+C` 두 번 |
 
 자주 쓰는 슬래시 커맨드:
 
@@ -351,9 +351,14 @@ copilot
    (VS Code Copilot Chat이라면 /add-agent 프롬프트로 호출)
 2. Copilot이 agent-framework-codegen 스킬 규칙(import·async·instructions)에 맞춰 코드 생성
 3. /diff 로 변경사항 확인 → copilot --agent reviewer 로 리뷰 → 수정
-4. python -m py_compile src/04_concurrent_workflow.py 로 문법 검증 (Azure 불필요)
+4. (선택: Python이 설치된 경우) `python -m py_compile src/04_concurrent_workflow.py`로 문법 검증
+   (Azure 불필요)
 ```
 
+> 💡 **선택 사항**: `py_compile` 단계는 Python이 설치된 환경에서만 실행 가능합니다. 이 문서의 핵심은
+> Copilot CLI 학습이므로, Python이 없다면 `/diff`와 `reviewer` 에이전트 검토만으로도 실습을 계속
+> 진행할 수 있습니다.
+>
 > `py_compile`은 문법 오류가 없으면 **아무것도 출력하지 않고 종료**합니다(종료 코드 0). 그게 정상입니다.
 
 > 위 흐름은 **CLI 학습이 목적**이므로 Azure 리소스나 실제 실행이 필요 없습니다. `/diff`·`reviewer`

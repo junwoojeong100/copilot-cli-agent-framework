@@ -12,7 +12,7 @@ mode: "agent"
 - 파일명: {{file_name}}  (예: 05_my_workflow.py)
 - 에이전트/워크플로우명: {{agent_name}}
 - 역할: {{role_description}}
-- 패턴: 단일 에이전트 / 순차(Sequential) / GroupChat / 동시(Concurrent)
+- 패턴: 단일 에이전트 / 순차(Sequential) / GroupChat / 동시(Concurrent) / MCP 도구 연동 / RAG / Handoff
 
 ## 현재 시나리오 구조 (`src/`)
 
@@ -20,8 +20,9 @@ mode: "agent"
 2. **순차(Sequential)** (`02_sequential_workflow.py`) — `SequentialBuilder(participants=[...])` + `stream_workflow(workflow, topic)`
 3. **GroupChat** (`03_group_chat.py`) — `GroupChatBuilder(participants=..., selection_func=..., max_rounds=...)` + `stream_workflow(workflow, topic)`
 4. **동시(Concurrent)** (`04_concurrent_workflow.py`) — `ConcurrentBuilder(participants=[...])` + `stream_workflow(workflow, design)`
-5. **MCP 도구 연동** (`05_mcp_agent.py`) — `MCPStreamableHTTPTool(url=...)` + `Agent(tools=[mcp_tool])` + `stream_agent(agent, prompt)`
-6. **RAG** (`06_rag_agent.py`) — Retriever·Augmenter·Generator 3단계 파이프라인 + `stream_workflow(workflow, query)`
+5. **MCP 도구 연동** (`05_mcp_agent.py`) — `MCPStreamableHTTPTool(url=...)` + `Agent(tools=mcp_tool)` + `stream_agent(agent, prompt)`
+6. **RAG** (`06_rag_agent.py`) — 검색(Search) → 증강(Augment) → 단일 에이전트 실행 + `stream_agent(agent, augmented_prompt)`
+7. **RAG (Foundry IQ)** (`06_rag_agent_foundry_iq.py`) — Foundry IQ 검색 결과를 바탕으로 단일 에이전트를 실행 + `stream_agent(agent, question)`
 
 ## 규칙
 
