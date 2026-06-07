@@ -466,7 +466,6 @@ result = await agent.run(question)
 | Concurrent | `src/04_concurrent_workflow.py` |
 | MCP 도구 연동 | `src/05_mcp_agent.py` |
 | RAG (하이브리드 / Foundry IQ) | `src/06_rag_agent.py` · `src/06_rag_agent_foundry_iq.py` |
-| (심화) Foundry Agent SDK v2 + MAF 오케스트레이션 | `src/foundry_sdk_v2/` |
 | (심화) Hosted Agent 배포 | `src/hosted_agents/` |
 
 - 새 예제는 `src/`에 **`NN_<name>.py`** 규칙으로 추가하고, 스트리밍은 `_streaming.py` 헬퍼를 쓴다.

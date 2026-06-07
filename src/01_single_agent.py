@@ -28,13 +28,10 @@ async def main():
     # ── 1단계: Foundry Chat 클라이언트 설정 ──
     # 환경 변수에서 프로젝트 엔드포인트와 모델 이름을 가져옵니다
     project_endpoint = os.getenv("PROJECT_ENDPOINT")
-    model = os.getenv("MODEL_DEPLOYMENT_NAME")
+    model = os.getenv("MODEL_DEPLOYMENT_NAME") or "gpt-5.4"
 
     if not project_endpoint:
         print("오류: PROJECT_ENDPOINT 환경 변수를 설정해주세요.")
-        sys.exit(1)
-    if not model:
-        print("오류: MODEL_DEPLOYMENT_NAME 환경 변수를 설정해주세요.")
         sys.exit(1)
 
     # FoundryChatClient는 Microsoft Foundry 프로젝트에 연결합니다

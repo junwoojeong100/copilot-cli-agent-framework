@@ -36,7 +36,7 @@ server.run()
 ```bash
 azd ext install azure.ai.agents && azd auth login
 mkdir -p ~/deploy/group-chat && cd ~/deploy/group-chat
-REPO="/path/to/copilot-cli-agent-framework"
+REPO="/path/to/agent-framework-labs"
 azd ai agent init --no-prompt \
   -m "$REPO/src/hosted_agents/03_group_chat/agent.manifest.yaml" \
   --agent-name maf-lab-group-chat \

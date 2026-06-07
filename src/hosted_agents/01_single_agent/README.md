@@ -58,7 +58,7 @@ azd auth login
 ```bash
 # 1) 매니페스트로 azd 프로젝트 초기화 (빈 폴더에서 실행)
 mkdir -p ~/deploy/single-agent && cd ~/deploy/single-agent
-REPO="/path/to/copilot-cli-agent-framework"
+REPO="/path/to/agent-framework-labs"
 azd ai agent init --no-prompt \
   -m "$REPO/src/hosted_agents/01_single_agent/agent.manifest.yaml" \
   --agent-name maf-lab-single-agent \

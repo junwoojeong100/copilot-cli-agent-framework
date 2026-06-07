@@ -85,7 +85,7 @@ azd auth login                      # azd 자체 로그인(az login과 별개)
 
 ```bash
 mkdir -p ~/deploy/single && cd ~/deploy/single
-REPO="/path/to/copilot-cli-agent-framework"
+REPO="/path/to/agent-framework-labs"
 
 # 1) 기존 프로젝트에 코드(ZIP) 배포 모드로 초기화
 azd ai agent init --no-prompt \
