@@ -7,10 +7,6 @@
 다룹니다. 각 예제는 Python으로 작성되어 `FoundryChatClient`로 Microsoft Foundry에 연결하며, 루트에는
 에이전트 공통 가드레일 `AGENTS.md`가 있습니다.
 
-> 💡 **GitHub Copilot CLI로 개발을 가속하는 실습**은 별도 저장소
-> **[copilot-cli-labs](https://github.com/junwoojeong100/copilot-cli-labs)** 로 분리되었습니다
-> (CLI 설치 · `.github/` 설정 · 멀티 에이전트 패턴 · 바이브 코딩 · 가드레일).
-
 > **전제 지식**: Python 기초와 `async/await` 개념, 터미널(명령줄) 사용, 결제 가능한 **Azure 구독** 보유.
 > 처음이라면 **Part 1(사전 준비)부터 순서대로** 진행한 뒤 Part 2부터 예제를 하나씩 실행하는 것을 권장합니다.
 
@@ -25,7 +21,6 @@ Part 2부터 예제를 하나씩 실행하며 단계적으로 확장하세요.
 |------|-----------|
 | 🟢 **처음 시작하는 분** | **Part 1 → Part 2 → … → Part 7** (단일 에이전트부터 RAG까지 핵심 6가지 예제 `01`~`06`, 06번은 2가지 변형) |
 | 🔴 **심화/배포까지** | 위 + **Part 8** (Microsoft Foundry Hosted Agent (Hosted Agent) 배포 — 예제별 배포·원격 테스트) |
-| 🟣 **GitHub Copilot CLI로 직접 개발** | **별도 저장소** → [copilot-cli-labs](https://github.com/junwoojeong100/copilot-cli-labs) (CLI 설치 · `.github/` 설정 · 멀티 에이전트 패턴 · 바이브 코딩 · 가드레일) |
 
 ---
 
@@ -42,7 +37,6 @@ Part 2부터 예제를 하나씩 실행하며 단계적으로 확장하세요.
 - [Part 8. (심화) Hosted Agent 배포 — MAF 에이전트·워크플로우를 관리형으로](#part-8-심화-hosted-agent-배포--maf-에이전트워크플로우를-관리형으로)
 - [부록 A. 트러블슈팅](#부록-a-트러블슈팅)
 - [부록 B. 참고 자료](#부록-b-참고-자료)
-  - **별도 저장소**: [copilot-cli-labs](https://github.com/junwoojeong100/copilot-cli-labs) — CLI 설치 · `.github/` 설정 · 멀티 에이전트 패턴 · 바이브 코딩 · 가드레일
 
 ---
 
@@ -105,7 +99,6 @@ Part 2부터 예제를 하나씩 실행하며 단계적으로 확장하세요.
 | 6 | MCP 도구 연동 — 에이전트가 외부 시스템 호출 |
 | 7 | RAG — 검색 증강 생성으로 근거 기반 답변 |
 | 8 | (심화) Hosted Agent 배포 — 예제별 배포·원격 테스트 |
-| 별도 | **GitHub Copilot CLI 랩** — 별도 저장소 ([copilot-cli-labs](https://github.com/junwoojeong100/copilot-cli-labs)) |
 
 > **Part 1(사전 준비)이 모든 예제의 전제**입니다. Azure(Microsoft Foundry) 리소스·모델 배포와
 > `.env` 설정을 먼저 끝낸 뒤, Part 2부터 예제를 순서대로 실행하세요.
@@ -129,9 +122,6 @@ Part 2부터 예제를 하나씩 실행하며 단계적으로 확장하세요.
 |------|------|------|
 | **Python 3.10 이상 (권장: 3.12+)** | Agent Framework 코드 (지원 하한 3.10+, 이 랩은 3.12 기준으로 검증) | <https://python.org> |
 | **Azure CLI 2.81.0+** | Microsoft Foundry 인증(`az login` 키리스) | `az upgrade --yes` |
-
-> 💡 이 랩은 **Python 코드 실행**만으로 완결됩니다. GitHub Copilot CLI는 필요하지 않습니다.
-> CLI로 직접 개발을 가속하고 싶다면 별도 저장소 [copilot-cli-labs](https://github.com/junwoojeong100/copilot-cli-labs)를 참고하세요.
 
 ### 1.2 Azure 리소스 프로비저닝
 
@@ -533,9 +523,8 @@ python src/04_concurrent_workflow.py
 [질문] → [에이전트] → (MCP 도구로 Learn 문서 검색) → [출처가 포함된 답변]
 ```
 
-> 💡 **두 가지 MCP 사용처를 구분하세요.**
-> - **Copilot CLI의 MCP**: *개발자(나)* 가 CLI에서 쓰는 도구. 별도 저장소 [copilot-cli-labs](https://github.com/junwoojeong100/copilot-cli-labs)에서 다룹니다.
-> - **에이전트의 MCP** (`MCPStreamableHTTPTool`): *내가 만든 MAF 에이전트* 가 런타임에 쓰는 도구 (이번 Part).
+> 💡 **에이전트의 MCP** (`MCPStreamableHTTPTool`): *내가 만든 MAF 에이전트* 가 런타임에 외부
+> 시스템을 호출하는 도구입니다. 에이전트 코드 안에서 정의·연결하면, LLM이 필요하다고 판단할 때 스스로 호출합니다.
 
 ### 핵심 코드
 
@@ -904,21 +893,6 @@ Azure Container Registry가 추가로 필요합니다(azd가 **AcrPull** 권한 
 
 ---
 
-## 다음 단계 — GitHub Copilot CLI로 개발 가속하기 (별도 저장소)
-
-여기까지는 **Microsoft Agent Framework로 에이전트를 만드는 법**을 다뤘습니다. 한발 더 나아가
-**GitHub Copilot CLI 자체를 개발 도구로 활용**해 위 에이전트들을 *자연어 지시로 생성·리뷰·확장*하는
-실습은 별도 저장소로 제공됩니다.
-
-> 📄 **[copilot-cli-labs](https://github.com/junwoojeong100/copilot-cli-labs)**
-> - Part 1. Copilot CLI 시작하기 (설치·슬래시 커맨드)
-> - Part 2. Copilot을 "조종"하는 `.github/` 설정
-> - Part 3. 멀티 에이전트 패턴으로 개발하기 (`--agent`)
-> - Part 4. 바이브 코딩 — 설정만으로 코드 생성
-> - Part 5. 가드레일 (AGENTS.md)
-
----
-
 ## 부록 A. 트러블슈팅
 
 | 증상 | 해결 |
@@ -936,17 +910,11 @@ Azure Container Registry가 추가로 필요합니다(azd가 **AcrPull** 권한 
 | Hosted Agent: 배포 후 ARM 이미지 오류 | `linux/amd64` 필요 — `docker build --platform linux/amd64 .` |
 | Hosted Agent: 인증 실패 | 컨테이너는 `DefaultAzureCredential`(관리 ID) 사용, 로컬은 `az login` |
 
-> GitHub Copilot CLI 관련 문제(CLI 실행·MCP 서버·PAT 등)는 별도 저장소
-> [copilot-cli-labs](https://github.com/junwoojeong100/copilot-cli-labs)의 트러블슈팅을 참고하세요.
-
 ## 부록 B. 참고 자료
 
 ### 프로젝트 문서
 
 - [Hosted Agent 배포 예제](src/hosted_agents/) — 예제별 배포·원격 테스트(폴더별 `README.md`). 개요는 [Part 8](#part-8-심화-hosted-agent-배포--maf-에이전트워크플로우를-관리형으로) 참고.
-
-> GitHub Copilot CLI 관련 문서(가이드 · VS Code 비교 · `.github/` 설정 · 멀티 에이전트 패턴 · 바이브 코딩 등)는
-> 별도 저장소 [copilot-cli-labs](https://github.com/junwoojeong100/copilot-cli-labs)에서 다룹니다.
 
 ### 외부 링크
 
