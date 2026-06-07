@@ -56,13 +56,9 @@ Part 2부터 예제를 하나씩 실행하며 단계적으로 확장하세요.
 ├── requirements.txt                # Python 의존성 (예제 01~06)
 ├── requirements-foundry-sdk-v2.txt # Foundry Agent SDK v2 예제 전용 의존성 (오버레이)
 ├── .env.example                    # 환경변수 템플릿
-├── .copilot/
-│   └── mcp-config.json             # MCP 서버 설정 (azure · github · microsoftLearn)
 ├── .github/
 │   ├── copilot-instructions.md     # 프로젝트 전역 인스트럭션
 │   ├── instructions/               # python · azure · korean · git-commit 규칙
-│   ├── prompts/                    # add-agent · review-code (재사용 프롬프트)
-│   ├── agents/                     # orchestrator · planner_executor · debate_critic · generator_evaluator · code_generation · reviewer · debugger
 │   ├── skills/
 │   │   └── agent-framework-codegen/SKILL.md   # MAF 코드 생성 패턴
 │   └── workflows/
@@ -542,7 +538,7 @@ python src/04_concurrent_workflow.py
 ```
 
 > 💡 **두 가지 MCP 사용처를 구분하세요.**
-> - **Copilot CLI의 MCP** (`.copilot/mcp-config.json`): *개발자(나)* 가 CLI에서 쓰는 도구 ([copilot-cli-labs](https://github.com/junwoojeong100/copilot-cli-labs) Part 3).
+> - **Copilot CLI의 MCP**: *개발자(나)* 가 CLI에서 쓰는 도구. 별도 저장소 [copilot-cli-labs](https://github.com/junwoojeong100/copilot-cli-labs)에서 다룹니다.
 > - **에이전트의 MCP** (`MCPStreamableHTTPTool`): *내가 만든 MAF 에이전트* 가 런타임에 쓰는 도구 (이번 Part).
 
 ### 핵심 코드
