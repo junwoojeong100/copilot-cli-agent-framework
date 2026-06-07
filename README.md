@@ -752,7 +752,7 @@ python src/06_rag_agent_foundry_iq.py
 
 ### 8.1 로컬 스크립트 → Hosted Agent: 무엇이 바뀌나
 
-배포해도 **에이전트의 핵심 로직(이름·instructions·도구)은 그대로**입니다. 인증·실행 방식만 바뀝니다.
+배포해도 **에이전트의 정체성(이름·역할·instructions)은 그대로**입니다. 인증·실행 방식과, 도구·검색을 에이전트에 연결하는 '배선'만 호스팅 형태로 바뀝니다.
 
 | 로컬 예제(01~06) | Hosted Agent |
 |------------------|--------------|
@@ -782,6 +782,21 @@ python src/06_rag_agent_foundry_iq.py
 + os.getenv("FOUNDRY_PROJECT_ENDPOINT") or os.getenv("PROJECT_ENDPOINT")
 ```
 
+이 **네 군데**는 7개 예제에 **공통**으로 적용됩니다. 그 외에 예제마다 **구조 적응 한 가지**가
+더 붙는데, 원인은 모두 같습니다 — 로컬은 "질문 1건 처리 후 종료"하는 **일회성 스크립트**이고,
+호스팅은 여러 `/responses` 요청을 처리하는 **상시 대화형 서비스**이기 때문입니다. 그래서
+워크플로우·도구·검색을 "에이전트가 매 요청마다 스스로 호출하는 형태"로 바꿔 줍니다.
+
+| 예제 | 핵심(이름·역할·instructions) | 공통 4가지 | 예제별 구조 적응 (실행 모델 차이 때문) |
+|------|:---:|:---:|------|
+| `01_single_agent` | 동일 | ✅ | 없음 (가장 단순) |
+| `02_sequential_workflow` | 동일 | ✅ | 워크플로우를 `.build().as_agent()`로 감싸 단일 에이전트화 |
+| `03_group_chat` | 동일 | ✅ | `.as_agent()` (+ `max_rounds`를 단일 응답에 맞춰 6→3 축소) |
+| `04_concurrent_workflow` | 동일 | ✅ | `.as_agent()` |
+| `05_mcp_agent` | 동일 | ✅ | 클라이언트측 `MCPStreamableHTTPTool`+`async with` → **서버측** `client.get_mcp_tool(...)` (게이트웨이가 MCP 호출·수명 관리) |
+| `06_rag_agent` | 동일 | ✅ | 1회성 "검색→증강→생성" → 하이브리드 검색을 **함수 도구**로 노출(에이전트가 호출) · 인덱스 시드는 사전 전제로 분리 |
+| `06_rag_agent_foundry_iq` | 동일 | ✅ | 시드+프로바이더 생성 → **기존 지식 베이스에 연결**(`AzureAISearchContextProvider` agentic) |
+
 > **워크플로우(02·03·04)**는 한 줄만 추가하면 됩니다 — `.build()` 결과를 `.as_agent()`로
 > 감싸 단일 에이전트처럼 만든 뒤 똑같이 `ResponsesHostServer`에 넘깁니다.
 >
@@ -789,6 +804,9 @@ python src/06_rag_agent_foundry_iq.py
 > workflow_agent = SequentialBuilder(participants=[...]).build().as_agent()
 > ResponsesHostServer(workflow_agent).run()
 > ```
+>
+> **05·06**처럼 도구·검색이 있는 예제는, 도구를 **에이전트에 연결하는 방식**(서버측 MCP /
+> 함수 도구 / 컨텍스트 프로바이더)만 호스팅 형태로 바뀔 뿐, 에이전트의 역할·instructions는 그대로입니다.
 
 ### 8.2 폴더 구성 — 어떤 파일이 왜 필요한가
 
