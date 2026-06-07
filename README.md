@@ -759,6 +759,8 @@ python src/06_rag_agent_foundry_iq.py
 
 ### 8.1 로컬 스크립트 → Hosted Agent: 무엇이 바뀌나
 
+배포해도 **에이전트의 핵심 로직(이름·instructions·도구)은 그대로**입니다. 인증·실행 방식만 바뀝니다.
+
 | 로컬 예제(01~06) | Hosted Agent |
 |------------------|--------------|
 | 프롬프트 1건 처리 후 종료 | `/responses` HTTP 서버 상시 구동 |
@@ -767,60 +769,101 @@ python src/06_rag_agent_foundry_iq.py
 | 루트 `.env`의 `PROJECT_ENDPOINT` | Foundry 주입 env `FOUNDRY_PROJECT_ENDPOINT` |
 | 대화 이력 직접 관리 | 호스팅 인프라가 관리 → 각 에이전트에 `default_options={"store": False}` |
 
-**에이전트 코드는 그대로**, 실행만 `ResponsesHostServer`로 감쌉니다.
-**워크플로우**는 `.as_agent()`로 단일 에이전트처럼 감싸 동일하게 호스팅합니다.
+실제로 `src/01_single_agent.py` → `src/hosted_agents/01_single_agent/main.py`에서 바뀌는 건 **딱 네 군데**입니다.
 
-```python
-from agent_framework_foundry_hosting import ResponsesHostServer
+```diff
+  # 1) 인증: 내 az 로그인 → 컨테이너 전용 관리 ID
+- credential=AzureCliCredential()
++ credential=DefaultAzureCredential()
 
-# 단일 에이전트(01·05·06)
-server = ResponsesHostServer(agent)
-server.run()                       # /responses 엔드포인트(:8088), 동기 호출
+  # 2) 실행: 질문 1건 처리 후 종료 → 상시 HTTP 서버(동기)
+- async for update in agent.run(question, stream=True): ...   # asyncio.run(main())
++ server = ResponsesHostServer(agent); server.run()
 
-# 워크플로우(02·03·04) → .as_agent()로 감싸 동일하게 호스팅
-workflow_agent = SequentialBuilder(participants=[...]).build().as_agent()
-server = ResponsesHostServer(workflow_agent)
-server.run()
+  # 3) 대화 이력: 직접 관리 → 플랫폼이 관리
+- agent = Agent(client=client, name=..., instructions=...)
++ agent = Agent(client=client, name=..., instructions=..., default_options={"store": False})
+
+  # 4) 환경변수: 루트 이름만 → Foundry 표준 이름 우선(+루트 폴백)
+- os.getenv("PROJECT_ENDPOINT")
++ os.getenv("FOUNDRY_PROJECT_ENDPOINT") or os.getenv("PROJECT_ENDPOINT")
 ```
 
-### 8.2 공통 배포 흐름 (모든 예제 동일, 코드 ZIP 모드)
+> **워크플로우(02·03·04)**는 한 줄만 추가하면 됩니다 — `.build()` 결과를 `.as_agent()`로
+> 감싸 단일 에이전트처럼 만든 뒤 똑같이 `ResponsesHostServer`에 넘깁니다.
+>
+> ```python
+> workflow_agent = SequentialBuilder(participants=[...]).build().as_agent()
+> ResponsesHostServer(workflow_agent).run()
+> ```
+
+### 8.2 폴더 구성 — 어떤 파일이 왜 필요한가
+
+각 `src/hosted_agents/<예제>/` 폴더는 **그 자체로 배포 가능한 azd 프로젝트**입니다. 루트 예제 하나가
+아래 파일 묶음으로 옮겨졌다고 보면 됩니다. 대부분 그대로 두면 되고, 보통 **`main.py`와 `requirements.txt`만**
+신경 쓰면 됩니다.
+
+| 파일 | 무엇을 하나 | 직접 손대나? |
+|------|-------------|-------------|
+| `main.py` | 에이전트를 만들고 `ResponsesHostServer(agent).run()`으로 `/responses` 서버를 띄우는 **진입점**. 루트 예제에서 8.1의 네 군데만 바뀐 형태 | 에이전트 로직을 바꿀 때만 |
+| `requirements.txt` | 컨테이너가 설치할 **런타임 의존성**. 메타패키지 `agent-framework` 대신 하위 패키지(`-core`·`-foundry`·`-foundry-hosting`)만 명시 — 메타패키지는 x86 전용 의존성을 끌어와 원격 빌드를 깨뜨림 | 패키지 추가 시 |
+| `agent.manifest.yaml` | **`azd ai agent init -m`의 입력 파일**. 에이전트 이름·프로토콜(`responses`)·필요 env·기본 모델을 선언. init이 이걸 읽어 azd 프로젝트를 생성 | 이름/모델/env 바꿀 때 |
+| `agent.yaml` | init이 만드는 **배포 런타임 스펙**(CPU·메모리·프로토콜·env). `azd deploy`가 참조 | 리소스 조정 시 |
+| `Dockerfile` | 컨테이너 이미지 정의(`python:3.13-slim`, 포트 8088). **코드(ZIP) 모드에선 안 쓰임**, 컨테이너 모드에서만 사용 | 컨테이너 모드일 때만 |
+| `.env.example` | **로컬 테스트용** 환경변수 템플릿. `cp .env.example .env` 후 값 입력(배포되면 런타임이 자동 주입) | 로컬 실행 전 |
+| `.dockerignore`·`.azdignore` | 이미지·업로드에서 제외할 파일(`.venv`·`__pycache__`·매니페스트 등) | 보통 그대로 |
+
+### 8.3 배포 따라하기 — 01 단일 에이전트로 처음부터 끝까지
+
+아래는 `01_single_agent`를 `maf-lab-single-agent`라는 Hosted Agent로 배포하는 **구체적인 전 과정**입니다.
+다른 예제는 폴더 이름과 `--agent-name`만 아래 **8.4 예제별 배포** 표의 값으로 바꾸면 됩니다.
+(Part 1.2에서 만든 변수 `$RG`·`$FOUNDRY`·`$PROJECT`를 그대로 사용합니다.)
 
 ```bash
-# ① azd Foundry 에이전트 확장 설치 + 로그인 (az login과 별개)
+# ── 0) (최초 1회) azd 에이전트 확장 설치 + azd 로그인 (az login과 별개) ──
 azd ext install azure.ai.agents
 azd auth login
 
-# ② azd ai agent init 은 매니페스트 폴더와 분리된 '빈 작업 폴더'에서 실행
-#    (같은 폴더에서 실행하면 "target is inside the manifest directory" 오류)
-REPO="/path/to/agent-framework-labs"          # 이 저장소 경로
-mkdir -p ~/deploy/<예제> && cd ~/deploy/<예제>
+# ── 1) --project-id 에 넣을 'Foundry 프로젝트 리소스 ID' 구하기 ──
+ACC_ID=$(az cognitiveservices account show -n $FOUNDRY -g $RG --query id -o tsv)
+PROJECT_ID="$ACC_ID/projects/$PROJECT"
+echo "$PROJECT_ID"            # 이 값을 아래 --project-id 에 사용
+
+# ── 2) 매니페스트와 '분리된 빈 폴더'에서 init (같은 폴더에서 실행하면 오류) ──
+REPO=~/GitHub/agent-framework-labs                 # 이 저장소를 clone 한 경로
+mkdir -p ~/deploy/single-agent && cd ~/deploy/single-agent
 
 azd ai agent init --no-prompt \
-  -m "$REPO/src/hosted_agents/<예제>/agent.manifest.yaml" \
-  --agent-name <에이전트-이름> \
-  --project-id "<Foundry 프로젝트 리소스 ID>" \
+  -m "$REPO/src/hosted_agents/01_single_agent/agent.manifest.yaml" \
+  --agent-name maf-lab-single-agent \
+  --project-id "$PROJECT_ID" \
   --model-deployment gpt-5.4 \
   --deploy-mode code --runtime python_3_13 --entry-point main.py \
   --protocol responses --force
+#  → 지금 폴더에 azure.yaml 등 azd 프로젝트 파일이 생성됩니다.
 
-# ③ 기존 모델 배포를 그대로 사용 (init이 만든 azure.yaml의 deployments 블록은 제거)
+# ── 3) 이미 배포한 모델을 그대로 사용 (init이 새 모델을 만들지 않도록) ──
+#     init이 만든 azure.yaml에 deployments 블록이 있으면 지운 뒤:
 azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME gpt-5.4
 azd env set AI_AGENT_PENDING_PROVISION ""
-#    (RAG 예제 06·06-IQ는 여기서 SEARCH_*/AOAI 관련 env도 함께 azd env set — 8.3 참고)
 
-# ④ 로컬 테스트 (배포 전 동작 확인)
-azd ai agent run                         # 터미널 1: 로컬 호스트(:8088, 블로킹)
-azd ai agent invoke --local "<질문>"      # 터미널 2: 로컬 호출
+# ── 4) 로컬에서 먼저 띄워 확인 (선택) ──
+azd ai agent run                                              # 터미널 1: http://localhost:8088 대기(블로킹)
+azd ai agent invoke --local "Microsoft Agent Framework가 무엇인가요?"   # 터미널 2
 
-# ⑤ 배포 (로컬 서버 중지 후)
-azd provision --no-prompt                # (필요 시) 리소스 생성
-azd deploy --no-prompt                   # 소스 ZIP 업로드 → 클라우드에서 빌드·호스팅
+# ── 5) 클라우드 배포 (로컬 서버는 Ctrl+C로 끈 뒤) ──
+azd provision --no-prompt        # 필요한 Foundry 리소스 준비
+azd deploy --no-prompt           # 소스를 ZIP으로 업로드 → Foundry가 원격 빌드·호스팅
+#  → 끝나면 출력에 '플레이그라운드 링크'와 '에이전트 엔드포인트'가 표시됩니다(8.5에서 테스트).
 ```
 
-> `<예제>`·`<에이전트-이름>`·예제별 추가 env는 **8.3 예제별 가이드**에서 확인하세요. 각 폴더의
-> [`README.md`](src/hosted_agents/)에는 그대로 복사해 쓸 수 있는 전체 블록이 들어 있습니다.
+> 💡 **왜 빈 폴더에서 init 하나요?** `azd ai agent init`은 작업 폴더에 azd 프로젝트 파일을
+> 생성하는데, 매니페스트가 있는 폴더(`src/hosted_agents/01_single_agent/`)에서 실행하면
+> `target is inside the manifest directory` 오류가 납니다. 그래서 `~/deploy/...` 같은 빈 폴더를 씁니다.
+>
+> 폴더별로 그대로 복사해 쓸 수 있는 전체 명령은 각 폴더의 [`README.md`](src/hosted_agents/)에도 있습니다.
 
-### 8.3 예제별 배포 — 이름 · 전제 · 테스트 질문
+### 8.4 예제별 배포 — 이름 · 전제 · 테스트 질문
 
 | 예제 | `--agent-name` | 유형 | 배포 전 전제 | 원격 테스트 질문(예) |
 |------|----------------|------|--------------|----------------------|
@@ -832,7 +875,7 @@ azd deploy --no-prompt                   # 소스 ZIP 업로드 → 클라우드
 | [`06_rag_agent/`](src/hosted_agents/06_rag_agent/) | `maf-lab-rag-agent` | 단일 + 검색 함수 도구 | ① 인덱스 시드 ② 에이전트 ID RBAC | `Pro 요금제는 얼마이고 기술 지원은 얼마나 빨리 받나요?` |
 | [`06_rag_agent_foundry_iq/`](src/hosted_agents/06_rag_agent_foundry_iq/) | `maf-lab-rag-iq-agent` | 단일 + 컨텍스트 프로바이더 | ① 지식 베이스 생성 ② 에이전트 ID RBAC | `Pro 요금제는 얼마이고 기술 지원은 얼마나 빨리 받나요?` |
 
-배포 절차는 8.2와 같고 `<예제>`·`--agent-name`만 위 표 값으로 바꿉니다. **유형별 차이와 05·06의 추가 처리**는 다음과 같습니다.
+배포 절차는 8.3과 같고 폴더 이름·`--agent-name`만 위 표 값으로 바꿉니다. **유형별 차이와 05·06의 추가 처리**는 다음과 같습니다.
 
 - **02·03·04 (워크플로우)** — `main.py`가 `SequentialBuilder`/`GroupChatBuilder`/`ConcurrentBuilder`의
   `.build().as_agent()`로 워크플로우를 단일 에이전트로 감싸 호스팅합니다. 추가 리소스 없이 01과 동일하게 배포합니다.
@@ -861,7 +904,7 @@ az role assignment create --assignee-object-id "$PRINC" --assignee-principal-typ
 ```
 > 권한 전파에 1~2분 걸리며, 누락 시 첫 호출이 `session_not_ready`로 끝납니다.
 
-### 8.4 배포된 에이전트 원격 호출·테스트
+### 8.5 배포된 에이전트 원격 호출·테스트
 
 배포가 끝나면 `azd deploy` 출력에 **포털 플레이그라운드 링크**와 **전용 에이전트 엔드포인트**가
 표시됩니다. 단일·워크플로우 모두 같은 `/responses` 프로토콜로 호출합니다.
@@ -878,7 +921,7 @@ azd ai agent monitor --follow     # (선택) 컨테이너 로그·트레이스 �
 BASE_URL="https://<account>.services.ai.azure.com/api/projects/<project>"
 TOKEN=$(az account get-access-token --resource https://ai.azure.com --query accessToken -o tsv)
 
-# <에이전트-이름>은 8.3 표의 값(예: maf-lab-single-agent / maf-lab-rag-agent)
+# <에이전트-이름>은 8.4 표의 값(예: maf-lab-single-agent / maf-lab-rag-agent)
 curl -X POST "$BASE_URL/agents/<에이전트-이름>/endpoint/protocols/openai/responses?api-version=v1" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"input": "<질문>", "store": false}'
@@ -891,7 +934,7 @@ curl -X POST "$BASE_URL/agents/<에이전트-이름>/endpoint/protocols/openai/r
 > 컨테이너 안의 호출 신원은 **에이전트 전용 관리 ID**이고, 외부에서 호출하는 사용자/서비스는
 > 해당 Foundry 프로젝트에 대한 호출 권한이 필요합니다.
 
-### 8.5 (대안) 컨테이너 이미지로 배포
+### 8.6 (대안) 컨테이너 이미지로 배포
 
 코드(ZIP) 대신 각 폴더의 `Dockerfile`(`python:3.13-slim`, 포트 `8088`)로 **직접 빌드한 이미지**를
 배포할 수도 있습니다. `init` 시 `--deploy-mode container`(런타임은 Dockerfile이 정의하므로 `--runtime` 생략)로만
