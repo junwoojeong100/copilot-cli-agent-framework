@@ -738,8 +738,9 @@ python src/06_rag_agent_foundry_iq.py
 구동되는 `/responses` HTTP 엔드포인트로 노출합니다. 에이전트를 SDK로 재작성하지 않아도
 관리형 인프라 + **자동 trace/monitoring**을 그대로 얻는 것이 핵심입니다.
 
-> 🚀 **바로 해보기**: 배포는 **[8.3](#83-배포하고-호출하기--01-예제-복붙-6단계)**(복붙 6단계), 테스트는
-> `azd ai agent invoke "<질문>"` 한 줄이면 됩니다. 개념·파일 설명(8.1~8.2)은 건너뛰고 8.3부터 시작해도 됩니다.
+> 🚀 **바로 해보기**: **로컬 테스트 → 배포 → 호출**은 **[8.3](#83-로컬-실행--배포--호출--01-예제)**,
+> **예제별 배포 명령**은 **[8.4](#84-예제별-배포-명령-7개-예제)**. 가장 간단한 호출은 `azd ai agent invoke "<질문>"`
+> 한 줄입니다. 개념·파일 설명(8.1~8.2)은 건너뛰고 8.3부터 시작해도 됩니다.
 
 > 위치: [`src/hosted_agents/`](src/hosted_agents/) — 7개 예제(01~06 + 06 Foundry IQ 변형)가 각각
 > 독립 배포 가능한 azd 프로젝트(`main.py`·`Dockerfile`·`agent.yaml`·`agent.manifest.yaml`·
@@ -815,17 +816,16 @@ python src/06_rag_agent_foundry_iq.py
 > `azd up`)이 인프라를 처리합니다. **이 저장소의 7개 예제는 그 "에이전트 정의 파일"을 미리 채워 둔 것**이고, `azure.yaml`은
 > 저장소에 커밋돼 있지 않습니다(배포 시 작업 폴더에 생성).
 
-### 8.3 배포하고 호출하기 — 01 예제 (복붙 6단계)
+### 8.3 로컬 실행 → 배포 → 호출 — 01 예제
 
-`01_single_agent`을 배포하고 응답을 받는 **가장 짧은 경로**입니다. 다른 예제는 폴더 이름과
-`--agent-name`만 아래 **8.4 예제별 배포** 표 값으로 바꾸면 됩니다. (변수 `$RG`·`$FOUNDRY`·`$PROJECT`는 Part 1.2 그대로)
+`01_single_agent`을 **로컬에서 먼저 띄워 테스트한 뒤** 클라우드에 배포하고 호출하는 흐름입니다.
+다른 예제는 폴더 이름과 `--agent-name`만 [8.4](#84-예제별-배포-명령-7개-예제) 값으로 바꾸세요.
+(변수 `$RG`·`$FOUNDRY`·`$PROJECT`는 Part 1.2 그대로)
 
+**① 준비 + init + 모델 고정** — 빈 작업 폴더에서
 ```bash
-# 0) 1회 준비 — azd 확장 설치 + 로그인 (az login과 별개)
-azd ext install azure.ai.agents && azd auth login
-
-# 1) 빈 작업 폴더에서 init  (매니페스트가 있는 폴더에서 실행하면 오류)
-REPO=~/GitHub/agent-framework-labs                  # 이 저장소를 clone 한 경로
+azd ext install azure.ai.agents && azd auth login          # 최초 1회
+REPO=~/GitHub/agent-framework-labs                          # 이 저장소를 clone 한 경로
 mkdir -p ~/deploy/single && cd ~/deploy/single
 azd ai agent init --no-prompt \
   -m "$REPO/src/hosted_agents/01_single_agent/agent.manifest.yaml" \
@@ -833,28 +833,33 @@ azd ai agent init --no-prompt \
   --project-id "$(az cognitiveservices account show -n $FOUNDRY -g $RG --query id -o tsv)/projects/$PROJECT" \
   --model-deployment gpt-5.4 --deploy-mode code --runtime python_3_13 \
   --entry-point main.py --protocol responses --force
-
-# 2) 기존 모델 배포를 그대로 사용
 azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME gpt-5.4 && azd env set AI_AGENT_PENDING_PROVISION ""
-
-# 3) 배포
-azd provision --no-prompt && azd deploy --no-prompt
-
-# 4) 호출 — 배포된 에이전트에 바로 질문
-azd ai agent invoke "Microsoft Agent Framework가 무엇인가요?"
 ```
 
-이게 전부입니다. `azd deploy` 출력의 **플레이그라운드 링크**로 웹 UI에서도 바로 대화할 수 있고,
-REST 호출·로그 스트리밍 등 다른 방법은 **8.5**를 참고하세요.
+**② 로컬 실행 & 테스트** — 배포 전에 동작을 먼저 확인합니다 (터미널 2개)
+```bash
+# 터미널 1 — 로컬에 /responses 서버를 띄움 (http://localhost:8088, 블로킹)
+azd ai agent run
 
-> 💡 **알아두면 좋은 점**
-> - **빈 폴더에서 init**: `azd ai agent init`은 작업 폴더에 `azure.yaml`을 만들기 때문에 매니페스트 폴더가 아닌
->   빈 폴더에서 실행합니다(같은 폴더면 `target is inside the manifest directory` 오류).
-> - **배포 전 로컬 확인**(선택): 터미널 1 `azd ai agent run`(`:8088` 대기) → 터미널 2 `azd ai agent invoke --local "<질문>"`.
-> - **모델이 새로 만들어지면**: init이 만든 `azure.yaml`에 `deployments` 블록이 있으면 지우고 `azd env set`으로 기존 배포(`gpt-5.4`)를 고정하세요.
-> - 예제별 전체 명령은 각 폴더 [`README.md`](src/hosted_agents/)에도 있습니다.
+# 터미널 2 — 로컬 에이전트에 질문
+azd ai agent invoke --local "Microsoft Agent Framework가 무엇인가요?"
+```
+> azd 없이 바로 돌려보려면: `cd $REPO/src/hosted_agents/01_single_agent` → `.env.example`을 `.env`로 복사·입력 →
+> `pip install -r requirements.txt && python main.py`(로컬 `:8088`), 다른 터미널에서 `curl localhost:8088/responses ...`로 호출.
 
-### 8.4 예제별 배포 — 이름 · 전제 · 테스트 질문
+**③ 배포 & 호출** — 로컬 서버를 `Ctrl+C`로 끈 뒤
+```bash
+azd provision --no-prompt && azd deploy --no-prompt        # ZIP 업로드 → Foundry 원격 빌드·호스팅
+azd ai agent invoke "Microsoft Agent Framework가 무엇인가요?"   # 배포된 엔드포인트로 호출
+```
+`azd deploy` 출력의 **플레이그라운드 링크**로 웹 UI에서도 대화할 수 있습니다. REST·로그 등은 **8.5** 참고.
+
+> 💡 **빈 폴더에서 init 하는 이유**: init이 작업 폴더에 `azure.yaml`을 생성하므로, 매니페스트가 있는 폴더에서
+> 실행하면 `target is inside the manifest directory` 오류가 납니다. · 모델이 새로 만들어지면 init이 만든
+> `azure.yaml`의 `deployments` 블록을 지우고 `azd env set`으로 기존 배포(`gpt-5.4`)를 고정하세요.
+> · 예제별 전체 명령은 각 폴더 [`README.md`](src/hosted_agents/)에도 있습니다.
+
+### 8.4 예제별 배포 명령 (7개 예제)
 
 | 예제 | `--agent-name` | 유형 | 배포 전 전제 | 원격 테스트 질문(예) |
 |------|----------------|------|--------------|----------------------|
@@ -866,7 +871,24 @@ REST 호출·로그 스트리밍 등 다른 방법은 **8.5**를 참고하세요
 | [`06_rag_agent/`](src/hosted_agents/06_rag_agent/) | `maf-lab-rag-agent` | 단일 + 검색 함수 도구 | ① 인덱스 시드 ② 에이전트 ID RBAC | `Pro 요금제는 얼마이고 기술 지원은 얼마나 빨리 받나요?` |
 | [`06_rag_agent_foundry_iq/`](src/hosted_agents/06_rag_agent_foundry_iq/) | `maf-lab-rag-iq-agent` | 단일 + 컨텍스트 프로바이더 | ① 지식 베이스 생성 ② 에이전트 ID RBAC | `Pro 요금제는 얼마이고 기술 지원은 얼마나 빨리 받나요?` |
 
-배포 절차는 8.3과 같고 폴더 이름·`--agent-name`만 위 표 값으로 바꿉니다. **유형별 차이와 05·06의 추가 처리**는 다음과 같습니다.
+8.3의 ①에서 **`azd ai agent init` 줄만** 아래로 바꾸면 됩니다(나머지 단계는 동일). 공통 인자는 변수로 묶었습니다.
+
+```bash
+PROJECT_ID="$(az cognitiveservices account show -n $FOUNDRY -g $RG --query id -o tsv)/projects/$PROJECT"
+R="$REPO/src/hosted_agents"
+COMMON="--no-prompt --project-id $PROJECT_ID --model-deployment gpt-5.4 --deploy-mode code --runtime python_3_13 --entry-point main.py --protocol responses --force"
+
+# 원하는 예제의 줄을 '그 예제 전용 빈 폴더'에서 실행하세요 (한 폴더 = 한 에이전트)
+azd ai agent init -m "$R/01_single_agent/agent.manifest.yaml"          --agent-name maf-lab-single-agent        $COMMON
+azd ai agent init -m "$R/02_sequential_workflow/agent.manifest.yaml"   --agent-name maf-lab-sequential-workflow $COMMON
+azd ai agent init -m "$R/03_group_chat/agent.manifest.yaml"            --agent-name maf-lab-group-chat          $COMMON
+azd ai agent init -m "$R/04_concurrent_workflow/agent.manifest.yaml"   --agent-name maf-lab-concurrent          $COMMON
+azd ai agent init -m "$R/05_mcp_agent/agent.manifest.yaml"             --agent-name maf-lab-mcp-agent           $COMMON
+azd ai agent init -m "$R/06_rag_agent/agent.manifest.yaml"             --agent-name maf-lab-rag-agent           $COMMON
+azd ai agent init -m "$R/06_rag_agent_foundry_iq/agent.manifest.yaml"  --agent-name maf-lab-rag-iq-agent        $COMMON
+```
+
+init 뒤에는 8.3의 ②(로컬 테스트)·③(배포·호출)을 그대로 따릅니다. **유형별 차이와 05·06의 추가 처리**는 다음과 같습니다.
 
 - **02·03·04 (워크플로우)** — `main.py`가 `SequentialBuilder`/`GroupChatBuilder`/`ConcurrentBuilder`의
   `.build().as_agent()`로 워크플로우를 단일 에이전트로 감싸 호스팅합니다. 추가 리소스 없이 01과 동일하게 배포합니다.
