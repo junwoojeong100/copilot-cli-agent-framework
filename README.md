@@ -738,6 +738,9 @@ python src/06_rag_agent_foundry_iq.py
 구동되는 `/responses` HTTP 엔드포인트로 노출합니다. 에이전트를 SDK로 재작성하지 않아도
 관리형 인프라 + **자동 trace/monitoring**을 그대로 얻는 것이 핵심입니다.
 
+> 🚀 **바로 해보기**: 배포는 **[8.3](#83-배포하고-호출하기--01-예제-복붙-6단계)**(복붙 6단계), 테스트는
+> `azd ai agent invoke "<질문>"` 한 줄이면 됩니다. 개념·파일 설명(8.1~8.2)은 건너뛰고 8.3부터 시작해도 됩니다.
+
 > 위치: [`src/hosted_agents/`](src/hosted_agents/) — 7개 예제(01~06 + 06 Foundry IQ 변형)가 각각
 > 독립 배포 가능한 azd 프로젝트(`main.py`·`Dockerfile`·`agent.yaml`·`agent.manifest.yaml`·
 > `requirements.txt`·`.env.example`)로 들어 있습니다.
@@ -812,55 +815,44 @@ python src/06_rag_agent_foundry_iq.py
 > `azd up`)이 인프라를 처리합니다. **이 저장소의 7개 예제는 그 "에이전트 정의 파일"을 미리 채워 둔 것**이고, `azure.yaml`은
 > 저장소에 커밋돼 있지 않습니다(배포 시 작업 폴더에 생성).
 
-### 8.3 배포 따라하기 — 01 단일 에이전트로 처음부터 끝까지
+### 8.3 배포하고 호출하기 — 01 예제 (복붙 6단계)
 
-아래는 `01_single_agent`를 `maf-lab-single-agent`라는 Hosted Agent로 배포하는 **구체적인 전 과정**입니다.
-다른 예제는 폴더 이름과 `--agent-name`만 아래 **8.4 예제별 배포** 표의 값으로 바꾸면 됩니다.
-(Part 1.2에서 만든 변수 `$RG`·`$FOUNDRY`·`$PROJECT`를 그대로 사용합니다.)
+`01_single_agent`을 배포하고 응답을 받는 **가장 짧은 경로**입니다. 다른 예제는 폴더 이름과
+`--agent-name`만 아래 **8.4 예제별 배포** 표 값으로 바꾸면 됩니다. (변수 `$RG`·`$FOUNDRY`·`$PROJECT`는 Part 1.2 그대로)
 
 ```bash
-# ── 0) (최초 1회) azd 에이전트 확장 설치 + azd 로그인 (az login과 별개) ──
-azd ext install azure.ai.agents
-azd auth login
+# 0) 1회 준비 — azd 확장 설치 + 로그인 (az login과 별개)
+azd ext install azure.ai.agents && azd auth login
 
-# ── 1) --project-id 에 넣을 'Foundry 프로젝트 리소스 ID' 구하기 ──
-ACC_ID=$(az cognitiveservices account show -n $FOUNDRY -g $RG --query id -o tsv)
-PROJECT_ID="$ACC_ID/projects/$PROJECT"
-echo "$PROJECT_ID"            # 이 값을 아래 --project-id 에 사용
-
-# ── 2) 매니페스트와 '분리된 빈 폴더'에서 init (같은 폴더에서 실행하면 오류) ──
-REPO=~/GitHub/agent-framework-labs                 # 이 저장소를 clone 한 경로
-mkdir -p ~/deploy/single-agent && cd ~/deploy/single-agent
-
+# 1) 빈 작업 폴더에서 init  (매니페스트가 있는 폴더에서 실행하면 오류)
+REPO=~/GitHub/agent-framework-labs                  # 이 저장소를 clone 한 경로
+mkdir -p ~/deploy/single && cd ~/deploy/single
 azd ai agent init --no-prompt \
   -m "$REPO/src/hosted_agents/01_single_agent/agent.manifest.yaml" \
   --agent-name maf-lab-single-agent \
-  --project-id "$PROJECT_ID" \
-  --model-deployment gpt-5.4 \
-  --deploy-mode code --runtime python_3_13 --entry-point main.py \
-  --protocol responses --force
-#  → 지금 폴더에 azure.yaml 등 azd 프로젝트 파일이 생성됩니다.
+  --project-id "$(az cognitiveservices account show -n $FOUNDRY -g $RG --query id -o tsv)/projects/$PROJECT" \
+  --model-deployment gpt-5.4 --deploy-mode code --runtime python_3_13 \
+  --entry-point main.py --protocol responses --force
 
-# ── 3) 이미 배포한 모델을 그대로 사용 (init이 새 모델을 만들지 않도록) ──
-#     init이 만든 azure.yaml에 deployments 블록이 있으면 지운 뒤:
-azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME gpt-5.4
-azd env set AI_AGENT_PENDING_PROVISION ""
+# 2) 기존 모델 배포를 그대로 사용
+azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME gpt-5.4 && azd env set AI_AGENT_PENDING_PROVISION ""
 
-# ── 4) 로컬에서 먼저 띄워 확인 (선택) ──
-azd ai agent run                                              # 터미널 1: http://localhost:8088 대기(블로킹)
-azd ai agent invoke --local "Microsoft Agent Framework가 무엇인가요?"   # 터미널 2
+# 3) 배포
+azd provision --no-prompt && azd deploy --no-prompt
 
-# ── 5) 클라우드 배포 (로컬 서버는 Ctrl+C로 끈 뒤) ──
-azd provision --no-prompt        # 필요한 Foundry 리소스 준비
-azd deploy --no-prompt           # 소스를 ZIP으로 업로드 → Foundry가 원격 빌드·호스팅
-#  → 끝나면 출력에 '플레이그라운드 링크'와 '에이전트 엔드포인트'가 표시됩니다(8.5에서 테스트).
+# 4) 호출 — 배포된 에이전트에 바로 질문
+azd ai agent invoke "Microsoft Agent Framework가 무엇인가요?"
 ```
 
-> 💡 **왜 빈 폴더에서 init 하나요?** `azd ai agent init`은 작업 폴더에 azd 프로젝트 파일을
-> 생성하는데, 매니페스트가 있는 폴더(`src/hosted_agents/01_single_agent/`)에서 실행하면
-> `target is inside the manifest directory` 오류가 납니다. 그래서 `~/deploy/...` 같은 빈 폴더를 씁니다.
->
-> 폴더별로 그대로 복사해 쓸 수 있는 전체 명령은 각 폴더의 [`README.md`](src/hosted_agents/)에도 있습니다.
+이게 전부입니다. `azd deploy` 출력의 **플레이그라운드 링크**로 웹 UI에서도 바로 대화할 수 있고,
+REST 호출·로그 스트리밍 등 다른 방법은 **8.5**를 참고하세요.
+
+> 💡 **알아두면 좋은 점**
+> - **빈 폴더에서 init**: `azd ai agent init`은 작업 폴더에 `azure.yaml`을 만들기 때문에 매니페스트 폴더가 아닌
+>   빈 폴더에서 실행합니다(같은 폴더면 `target is inside the manifest directory` 오류).
+> - **배포 전 로컬 확인**(선택): 터미널 1 `azd ai agent run`(`:8088` 대기) → 터미널 2 `azd ai agent invoke --local "<질문>"`.
+> - **모델이 새로 만들어지면**: init이 만든 `azure.yaml`에 `deployments` 블록이 있으면 지우고 `azd env set`으로 기존 배포(`gpt-5.4`)를 고정하세요.
+> - 예제별 전체 명령은 각 폴더 [`README.md`](src/hosted_agents/)에도 있습니다.
 
 ### 8.4 예제별 배포 — 이름 · 전제 · 테스트 질문
 
@@ -903,15 +895,15 @@ az role assignment create --assignee-object-id "$PRINC" --assignee-principal-typ
 ```
 > 권한 전파에 1~2분 걸리며, 누락 시 첫 호출이 `session_not_ready`로 끝납니다.
 
-### 8.5 배포된 에이전트 원격 호출·테스트
+### 8.5 테스트 방법 더 보기 (상태 · REST · 포털)
 
-배포가 끝나면 `azd deploy` 출력에 **포털 플레이그라운드 링크**와 **전용 에이전트 엔드포인트**가
-표시됩니다. 단일·워크플로우 모두 같은 `/responses` 프로토콜로 호출합니다.
+가장 간단한 호출은 **8.3의 `azd ai agent invoke "<질문>"`** 입니다. 단일·워크플로우 모두 같은
+`/responses` 프로토콜이라 호출 방법이 동일합니다. 그 밖의 방법은 다음과 같습니다.
 
-**① azd로 상태 확인 → 호출 → 로그**
+**① 상태 확인 · 로그 (azd)**
 ```bash
 azd ai agent show                 # "Active"가 되어야 호출 가능
-azd ai agent invoke "<질문>"       # --local 을 빼면 '배포된' 엔드포인트로 전송
+azd ai agent invoke "<질문>"       # 배포된 엔드포인트로 호출 (--local 이면 로컬 서버로)
 azd ai agent monitor --follow     # (선택) 컨테이너 로그·트레이스 실시간
 ```
 
