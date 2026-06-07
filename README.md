@@ -790,17 +790,27 @@ python src/06_rag_agent_foundry_iq.py
 
 각 `src/hosted_agents/<예제>/` 폴더는 **그 자체로 배포 가능한 azd 프로젝트**입니다. 루트 예제 하나가
 아래 파일 묶음으로 옮겨졌다고 보면 됩니다. 대부분 그대로 두면 되고, 보통 **`main.py`와 `requirements.txt`만**
-신경 쓰면 됩니다.
+신경 쓰면 됩니다. **내가 만든 MAF 코드를 직접 배포할 때 무엇을 손으로 만들고 무엇이 `azd`로 자동 생성되는지**는 아래 💡를 참고하세요.
 
 | 파일 | 무엇을 하나 | 직접 손대나? |
 |------|-------------|-------------|
 | `main.py` | 에이전트를 만들고 `ResponsesHostServer(agent).run()`으로 `/responses` 서버를 띄우는 **진입점**. 루트 예제에서 8.1의 네 군데만 바뀐 형태 | 에이전트 로직을 바꿀 때만 |
 | `requirements.txt` | 컨테이너가 설치할 **런타임 의존성**. 메타패키지 `agent-framework` 대신 하위 패키지(`-core`·`-foundry`·`-foundry-hosting`)만 명시 — 메타패키지는 x86 전용 의존성을 끌어와 원격 빌드를 깨뜨림 | 패키지 추가 시 |
 | `agent.manifest.yaml` | **`azd ai agent init -m`의 입력 파일**. 에이전트 이름·프로토콜(`responses`)·필요 env·기본 모델을 선언. init이 이걸 읽어 azd 프로젝트를 생성 | 이름/모델/env 바꿀 때 |
-| `agent.yaml` | init이 만드는 **배포 런타임 스펙**(CPU·메모리·프로토콜·env). `azd deploy`가 참조 | 리소스 조정 시 |
+| `agent.yaml` | **배포 런타임 스펙**(CPU·메모리·프로토콜·env). 이 저장소에 포함되어 있고 `azd deploy`가 참조 | 리소스 조정 시 |
 | `Dockerfile` | 컨테이너 이미지 정의(`python:3.13-slim`, 포트 8088). **코드(ZIP) 모드에선 안 쓰임**, 컨테이너 모드에서만 사용 | 컨테이너 모드일 때만 |
 | `.env.example` | **로컬 테스트용** 환경변수 템플릿. `cp .env.example .env` 후 값 입력(배포되면 런타임이 자동 주입) | 로컬 실행 전 |
 | `.dockerignore`·`.azdignore` | 이미지·업로드에서 제외할 파일(`.venv`·`__pycache__`·매니페스트 등) | 보통 그대로 |
+
+> 💡 **내 코드를 배포할 때 이 파일들을 일일이 만들어야 하나요?** 손으로 만드는 건 **에이전트를 정의하는 최소 파일**뿐입니다 —
+> `main.py`(내 MAF 에이전트를 `ResponsesHostServer`로 감싼 코드)·`requirements.txt`·에이전트 정의 YAML
+> (`agent.manifest.yaml` 또는 `agent.yaml`), 컨테이너 모드면 `Dockerfile`. 이마저도 맨손으로 시작할 필요 없이
+> **`azd ai agent init -m <샘플 매니페스트>`가 이 골격을 `src/`에 내려받아** 주므로, 받은 `main.py`에 내 로직만 채우면 됩니다.
+>
+> 반대로 **배포에 필요한 나머지는 `azd`가 자동 생성**합니다(직접 작성하지 않음): `azure.yaml`(프로젝트 설정)·`infra/`(Bicep
+> IaC)·`.azure/<env>/.env`. `azd ai agent init`이 매니페스트를 읽어 `azure.yaml`을 만들고/갱신하며, `azd provision`(또는
+> `azd up`)이 인프라를 처리합니다. **이 저장소의 7개 예제는 그 "에이전트 정의 파일"을 미리 채워 둔 것**이고, `azure.yaml`은
+> 저장소에 커밋돼 있지 않습니다(배포 시 작업 폴더에 생성).
 
 ### 8.3 배포 따라하기 — 01 단일 에이전트로 처음부터 끝까지
 
