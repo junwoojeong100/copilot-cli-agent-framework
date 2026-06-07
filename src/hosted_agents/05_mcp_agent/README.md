@@ -40,7 +40,7 @@ server.run()
 ```bash
 azd ext install azure.ai.agents && azd auth login
 mkdir -p ~/deploy/mcp-agent && cd ~/deploy/mcp-agent
-REPO="/path/to/copilot-cli-agent-framework"
+REPO="/path/to/agent-framework-labs"
 azd ai agent init --no-prompt \
   -m "$REPO/src/hosted_agents/05_mcp_agent/agent.manifest.yaml" \
   --agent-name maf-lab-mcp-agent \

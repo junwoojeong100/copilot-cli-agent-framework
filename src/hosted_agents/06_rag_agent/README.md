@@ -61,7 +61,7 @@ server.run()
 ```bash
 azd ext install azure.ai.agents && azd auth login
 mkdir -p ~/deploy/rag-agent && cd ~/deploy/rag-agent
-REPO="/path/to/copilot-cli-agent-framework"
+REPO="/path/to/agent-framework-labs"
 azd ai agent init --no-prompt \
   -m "$REPO/src/hosted_agents/06_rag_agent/agent.manifest.yaml" \
   --agent-name maf-lab-rag-agent \

@@ -56,7 +56,7 @@ azd auth login
 
 # 매니페스트로 azd 프로젝트 초기화 (빈 폴더에서 실행)
 mkdir -p ~/deploy/sequential-workflow && cd ~/deploy/sequential-workflow
-REPO="/path/to/copilot-cli-agent-framework"
+REPO="/path/to/agent-framework-labs"
 azd ai agent init --no-prompt \
   -m "$REPO/src/hosted_agents/02_sequential_workflow/agent.manifest.yaml" \
   --agent-name maf-lab-sequential-workflow \

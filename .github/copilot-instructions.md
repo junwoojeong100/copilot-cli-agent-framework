@@ -17,8 +17,7 @@
 6. **RAG** (`06_rag_agent.py`, `06_rag_agent_foundry_iq.py`) — 검색 증강 생성
    (하이브리드 검색 버전 + Foundry IQ agentic 컨텍스트 프로바이더 버전, 2가지 변형)
 
-심화 예제는 `src/foundry_sdk_v2/`(Foundry Agent SDK v2 + MAF 오케스트레이션)와
-`src/hosted_agents/`(MAF 에이전트·워크플로우의 Hosted Agent 배포)에 있습니다.
+심화 예제는 `src/hosted_agents/`(MAF 에이전트·워크플로우의 Hosted Agent 배포)에 있습니다.
 
 ## 기술 스택
 
