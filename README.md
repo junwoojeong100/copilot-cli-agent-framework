@@ -20,7 +20,7 @@ Part 2부터 예제를 하나씩 실행하며 단계적으로 확장하세요.
 | 대상 | 권장 범위 |
 |------|-----------|
 | 🟢 **처음 시작하는 분** | **Part 1 → Part 2 → … → Part 7** (단일 에이전트부터 RAG까지 핵심 6가지 예제 `01`~`06`, 06번은 2가지 변형) |
-| 🔴 **심화/배포까지** | 위 + **Part 8** (Microsoft Foundry Hosted Agent (Hosted Agent) 배포 — 예제별 배포·원격 테스트) |
+| 🔴 **배포까지** | 위 + **Part 8** (Microsoft Foundry Hosted Agent (Hosted Agent) 배포 — 예제별 배포·원격 테스트) |
 
 ---
 
@@ -34,7 +34,7 @@ Part 2부터 예제를 하나씩 실행하며 단계적으로 확장하세요.
 - [Part 5. 동시(Concurrent) 워크플로우](#part-5-동시concurrent-워크플로우)
 - [Part 6. MCP 도구 연동 에이전트](#part-6-mcp-도구-연동-에이전트)
 - [Part 7. RAG — 검색 증강 생성](#part-7-rag--검색-증강-생성)
-- [Part 8. (심화) Hosted Agent 배포 — MAF 에이전트·워크플로우를 관리형으로](#part-8-심화-hosted-agent-배포--maf-에이전트워크플로우를-관리형으로)
+- [Part 8. Hosted Agent 배포 — MAF 에이전트·워크플로우를 관리형으로](#part-8-hosted-agent-배포--maf-에이전트워크플로우를-관리형으로)
 - [부록 A. 트러블슈팅](#부록-a-트러블슈팅)
 - [부록 B. 참고 자료](#부록-b-참고-자료)
 
@@ -66,8 +66,8 @@ Part 2부터 예제를 하나씩 실행하며 단계적으로 확장하세요.
     ├── _rag_iq.py                  # Foundry IQ RAG 공용 헬퍼 (인덱스 시드 + 컨텍스트 프로바이더)
     ├── _streaming.py               # 스트리밍 출력 공용 헬퍼 (전 예제 공유)
     │
-    │   # ── 아래 폴더는 (심화) 입니다. 처음에는 건너뛰어도 됩니다 ──
-    └── hosted_agents/              # (심화) MAF 에이전트·워크플로우를 Hosted Agent로 배포 (01~06 + 06 Foundry IQ 변형, Part 8)
+    │   # ── 아래 폴더는 선택 사항입니다. 처음에는 건너뛰어도 됩니다 ──
+    └── hosted_agents/              # MAF 에이전트·워크플로우를 Hosted Agent로 배포 (01~06 + 06 Foundry IQ 변형, Part 8)
 ```
 
 ---
@@ -98,7 +98,7 @@ Part 2부터 예제를 하나씩 실행하며 단계적으로 확장하세요.
 | 3~5 | Sequential / GroupChat / Concurrent Workflow |
 | 6 | MCP 도구 연동 — 에이전트가 외부 시스템 호출 |
 | 7 | RAG — 검색 증강 생성으로 근거 기반 답변 |
-| 8 | (심화) Hosted Agent 배포 — 예제별 배포·원격 테스트 |
+| 8 | Hosted Agent 배포 — 예제별 배포·원격 테스트 |
 
 > **Part 1(사전 준비)이 모든 예제의 전제**입니다. Azure(Microsoft Foundry) 리소스·모델 배포와
 > `.env` 설정을 먼저 끝낸 뒤, Part 2부터 예제를 순서대로 실행하세요.
@@ -290,7 +290,7 @@ az group delete -n $RG --yes --no-wait
 
 > ⚠️ `--no-wait`는 삭제 요청만 보내고 즉시 반환합니다. 진행 상황은
 > `az group show -n $RG` 가 `NotFound`를 반환할 때까지 확인하세요.
-> 심화 실습(Part 8)에서 만든 Hosted Agent가 있다면, 각 폴더 README의 정리 절차도 함께 수행하세요.
+> Part 8에서 만든 Hosted Agent가 있다면, 각 폴더 README의 정리 절차도 함께 수행하세요.
 
 ---
 
@@ -724,14 +724,14 @@ python src/06_rag_agent_foundry_iq.py
 > **요구사항**: Azure AI Search에 **semantic ranker 활성화**(`--semantic-search free`),
 > **agentic retrieval 지원 리전**, 인덱스의 **기본 semantic 구성**(예제가 자동 생성),
 > Search 서비스 관리 ID의 Azure OpenAI 사용 권한이 필요합니다([1.2 프로비저닝](#12-azure-리소스-프로비저닝) 참고).
-> 심화 트랙(Part 8 Hosted Agent)에도 동일한 Foundry IQ 변형 예제가 있습니다.
+> Part 8 Hosted Agent 트랙에도 동일한 Foundry IQ 변형 예제가 있습니다.
 
 > ✅ **체크포인트**: 지식 베이스에 없는 질문(예: "배송비는 얼마인가요?")에 에이전트가
 > "관련 정보를 찾을 수 없습니다"라고 답하면 RAG가 올바르게 동작하는 것입니다.
 
 ---
 
-## Part 8. (심화) Hosted Agent 배포 — MAF 에이전트·워크플로우를 관리형으로
+## Part 8. Hosted Agent 배포 — MAF 에이전트·워크플로우를 관리형으로
 
 예제 01~06은 프롬프트 1건을 처리하고 종료하는 **로컬 콘솔 스크립트**입니다. 이 파트는 그
 **코드를 거의 그대로** Microsoft Foundry **Hosted Agent**(관리형 컨테이너)로 배포해, 상시
@@ -957,7 +957,7 @@ Azure Container Registry가 추가로 필요합니다(azd가 **AcrPull** 권한 
 
 ### 프로젝트 문서
 
-- [Hosted Agent 배포 예제](src/hosted_agents/) — 예제별 배포·원격 테스트(폴더별 `README.md`). 개요는 [Part 8](#part-8-심화-hosted-agent-배포--maf-에이전트워크플로우를-관리형으로) 참고.
+- [Hosted Agent 배포 예제](src/hosted_agents/) — 예제별 배포·원격 테스트(폴더별 `README.md`). 개요는 [Part 8](#part-8-hosted-agent-배포--maf-에이전트워크플로우를-관리형으로) 참고.
 
 ### 외부 링크
 
