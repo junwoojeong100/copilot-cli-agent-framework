@@ -209,7 +209,27 @@ az role assignment create --assignee $ME --role "Search Index Data Reader"      
 SEARCH_MI=$(az search service show -n $SEARCH -g $RG --query identity.principalId -o tsv)
 az role assignment create --assignee-object-id $SEARCH_MI --assignee-principal-type ServicePrincipal \
   --role "Cognitive Services OpenAI User" --scope $ACC_ID
+
+# 7) (선택) Application Insights 생성 — 에이전트 추적(Tracing) 활성화용
+#    Foundry 프로젝트에 연결하면 Hosted Agent(Part 8) 런타임이 추적을 자동 전송하고,
+#    포털 Agents → Traces 탭에서 모델·도구 호출을 추적할 수 있습니다.
+APPINSIGHTS=appi-maf-lab
+az extension add -n application-insights --upgrade --only-show-errors
+az monitor app-insights component create \
+  --app $APPINSIGHTS -g $RG -l $LOCATION --application-type web
 ```
+
+> **추적(Tracing) 활성화 — App Insights 리소스 생성 또는 연결**: 위 `7)`에서 만든 Application
+> Insights를 Foundry 프로젝트에 연결하면 추적이 켜집니다. [Microsoft Foundry 포털](https://ai.azure.com)에서
+> 프로젝트를 열고 왼쪽 **Agents → 상단 `Traces` 탭 → 오른쪽 `Connect`**를 눌러
+> **Application Insights 리소스를 생성하거나 연결**(*Create or connect an Application Insights
+> resource to enable tracing*)합니다. 기존 리소스는 목록에서 선택해 **Connect**, 새 리소스는
+> **Create new**로 마법사를 완료합니다. 연결되면 프로젝트가 추적을 사용할 준비가 됩니다.
+> 이후 Hosted Agent(Part 8) 런타임은 `APPLICATIONINSIGHTS_CONNECTION_STRING`을 자동
+> 주입받아 추적을 전송합니다.
+> `Connect` 버튼이 보이지 않으면 프로젝트 이름 드롭다운 → **Project details → Connected
+> resources 탭 → Add connection → Application Insights**로도 연결할 수 있습니다. 자세한 절차는
+> [Set up tracing in Microsoft Foundry](https://learn.microsoft.com/azure/foundry/observability/how-to/trace-agent-setup#connect-application-insights-to-your-foundry-project)를 참고하세요.
 
 > **RAG 인덱스 생성**: 별도 명령이 필요 없습니다. 예제 06의 `06_rag_agent.py`(하이브리드)와
 > `06_rag_agent_foundry_iq.py`(Foundry IQ)가 **첫 실행 시 인덱스를 자동 생성**하고 문서를
