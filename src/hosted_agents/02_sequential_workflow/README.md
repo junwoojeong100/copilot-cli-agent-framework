@@ -62,7 +62,7 @@ azd ai agent init --no-prompt \
   --agent-name maf-lab-sequential-workflow \
   --project-id "<Foundry 프로젝트 리소스 ID>" \
   --model-deployment gpt-5.4 \
-  --deploy-mode code --runtime python_3_13 --entry-point main.py \
+  --deploy-mode code --runtime python_3_14 --entry-point main.py \
   --protocol responses --force
 
 export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"

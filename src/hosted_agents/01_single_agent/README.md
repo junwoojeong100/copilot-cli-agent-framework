@@ -64,7 +64,7 @@ azd ai agent init --no-prompt \
   --agent-name maf-lab-single-agent \
   --project-id "<Foundry 프로젝트 리소스 ID>" \
   --model-deployment gpt-5.4 \
-  --deploy-mode code --runtime python_3_13 --entry-point main.py \
+  --deploy-mode code --runtime python_3_14 --entry-point main.py \
   --protocol responses --force
 
 # 2) 환경 변수 설정
