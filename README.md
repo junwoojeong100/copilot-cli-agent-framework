@@ -1005,8 +1005,13 @@ curl -X POST "$BASE_URL/agents/<에이전트-이름>/endpoint/protocols/openai/r
 바꾸면 됩니다. 단, **`linux/amd64`** 이미지가 필요하고(Apple Silicon은 `docker build --platform linux/amd64 .`),
 Azure Container Registry가 추가로 필요합니다(azd가 **AcrPull** 권한 자동 부여).
 
-> 관측: 배포 후 포털 **Assets → 에이전트 → Traces 탭**에서 단계별 모델/도구 호출을 추적하고,
-> Application Insights에서 토큰·비용 메트릭을 봅니다(런타임이 `APPLICATIONINSIGHTS_CONNECTION_STRING` 자동 주입).
+> 관측(트레이싱): Hosted Agent는 **server-side 트레이싱**이라 **코드 변경이 필요 없습니다**.
+> Foundry 프로젝트에 **Application Insights를 연결**하면 자동으로 켜지며(런타임이
+> `APPLICATIONINSIGHTS_CONNECTION_STRING`을 주입), 배포 후 포털 **Assets → 에이전트 →
+> Traces 탭**에서 모델·도구 호출을, Application Insights에서 토큰·비용 메트릭을 확인합니다.
+> 연결은 **배포 전·후 어느 시점이든** 가능하지만(연결 후 수 분 내 적용, 이미 배포된
+> 에이전트도 **재배포 불필요**), **배포 전에 연결**해두면 첫 호출부터 빠짐없이 추적되므로
+> 권장합니다. 연결 방법은 [§1.2 추적 활성화](#12-azure-리소스-프로비저닝)를 참고하세요.
 > 폴더별 전체 명령·환경 변수·트러블슈팅은 각 폴더의 [`README.md`](src/hosted_agents/)를 참고하세요.
 
 ---
