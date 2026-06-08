@@ -37,13 +37,19 @@ server.run()                          # 동기 호출 (asyncio.run으로 감싸�
 
 ## 파일 구성
 
-| 파일 | 역할 |
-| --- | --- |
-| `main.py` | 에이전트 정의 + Responses 서버 구동 |
-| `requirements.txt` | 컨테이너 런타임 의존성 |
-| `Dockerfile` | 컨테이너 배포 모드용 이미지 정의(코드 ZIP 배포에서는 선택) |
-| `agent.yaml` | azd 배포 스펙(런타임 리소스·env) |
-| `agent.manifest.yaml` | `azd ai agent init -m` 입력 매니페스트 |
+> 이 폴더는 `azd init`/`azd ai agent init`의 **산출물이 아니라 입력(소스)** 입니다.
+> `azd`가 자동 생성하는 `azure.yaml`·`infra/`·`.azure/`는 여기에 없으며, 빈 작업 폴더에서
+> `azd ai agent init`을 실행할 때 생성됩니다(아래 *로컬 실행* 참고).
+
+| 역할 | 파일 | 설명 |
+| --- | --- | --- |
+| **앱 본체 (배포 페이로드)** | `main.py` | 에이전트 정의 + `ResponsesHostServer`로 `/responses` 서버 구동(진입점) |
+| | `requirements.txt` | 코드(ZIP) 원격 빌드가 설치할 런타임 의존성. 메타패키지 대신 하위 패키지만 명시 |
+| **azd 입력·배포 정의** | `agent.manifest.yaml` | **`azd ai agent init -m`의 입력 파일(딱 1개)**. 이름·프로토콜·env·기본 모델 선언 |
+| | `agent.yaml` | 배포 런타임 스펙(CPU·메모리·프로토콜·env). `azd deploy`가 참조 |
+| | `Dockerfile` | 컨테이너 배포 모드 전용 이미지 정의. **코드(ZIP) 모드에선 미사용** |
+| **로컬·보조** | `.env.example` | 로컬 테스트용 환경변수 템플릿(`cp .env.example .env`) |
+| | `.azdignore`·`.dockerignore` | 업로드·이미지에서 제외할 파일(`.venv`·`__pycache__`·매니페스트 등) |
 
 ## 사전 준비
 

@@ -913,50 +913,23 @@ azd ai agent invoke "Microsoft Agent Framework가 무엇인가요?"   # 배포�
 | [`06_rag_agent/`](src/hosted_agents/06_rag_agent/) | `maf-lab-rag-agent` | 단일 + 검색 함수 도구 | ① 인덱스 시드 ② 에이전트 ID RBAC | `Pro 요금제는 얼마이고 기술 지원은 얼마나 빨리 받나요?` |
 | [`06_rag_agent_foundry_iq/`](src/hosted_agents/06_rag_agent_foundry_iq/) | `maf-lab-rag-iq-agent` | 단일 + 컨텍스트 프로바이더 | ① 지식 베이스 생성 ② 에이전트 ID RBAC | `Pro 요금제는 얼마이고 기술 지원은 얼마나 빨리 받나요?` |
 
-8.3의 ①에서 **`azd ai agent init` 줄만** 아래로 바꾸면 됩니다(나머지 단계는 동일). 공통 인자는 변수로 묶었습니다.
-
-```bash
-PROJECT_ID="$(az cognitiveservices account show -n $FOUNDRY -g $RG --query id -o tsv)/projects/$PROJECT"
-R="$REPO/src/hosted_agents"
-COMMON="--no-prompt --project-id $PROJECT_ID --model-deployment gpt-5.4 --deploy-mode code --runtime python_3_14 --entry-point main.py --protocol responses --force"
-
-# 원하는 예제의 줄을 '그 예제 전용 빈 폴더'에서 실행하세요 (한 폴더 = 한 에이전트)
-azd ai agent init -m "$R/01_single_agent/agent.manifest.yaml"          --agent-name maf-lab-single-agent        $COMMON
-azd ai agent init -m "$R/02_sequential_workflow/agent.manifest.yaml"   --agent-name maf-lab-sequential-workflow $COMMON
-azd ai agent init -m "$R/03_group_chat/agent.manifest.yaml"            --agent-name maf-lab-group-chat          $COMMON
-azd ai agent init -m "$R/04_concurrent_workflow/agent.manifest.yaml"   --agent-name maf-lab-concurrent          $COMMON
-azd ai agent init -m "$R/05_mcp_agent/agent.manifest.yaml"             --agent-name maf-lab-mcp-agent           $COMMON
-azd ai agent init -m "$R/06_rag_agent/agent.manifest.yaml"             --agent-name maf-lab-rag-agent           $COMMON
-azd ai agent init -m "$R/06_rag_agent_foundry_iq/agent.manifest.yaml"  --agent-name maf-lab-rag-iq-agent        $COMMON
-```
-
-init 뒤에는 8.3의 ②(로컬 테스트)·③(배포·호출)을 그대로 따릅니다. **유형별 차이와 05·06의 추가 처리**는 다음과 같습니다.
+각 예제는 **8.3과 동일한 흐름**으로 배포합니다 — `azd ai agent init`의 `-m`(매니페스트 경로)과
+`--agent-name`만 위 표 값으로 바꾸면 됩니다. **복사·붙여넣기용 전체 명령(전제·env·배포 후 RBAC 포함)은
+각 폴더의 [`README.md`](src/hosted_agents/)에 그대로 들어 있습니다.** 유형별 차이만 요약하면:
 
 - **02·03·04 (워크플로우)** — `main.py`가 `SequentialBuilder`/`GroupChatBuilder`/`ConcurrentBuilder`의
   `.build().as_agent()`로 워크플로우를 단일 에이전트로 감싸 호스팅합니다. 추가 리소스 없이 01과 동일하게 배포합니다.
-- **05 (MCP)** — 호스팅에서는 클라이언트 측 `MCPStreamableHTTPTool` 대신 **서버 측**
+- **05 (MCP)** — 클라이언트 측 `MCPStreamableHTTPTool` 대신 **서버 측**
   `client.get_mcp_tool(..., approval_mode="never_require")`로 등록합니다(Foundry 게이트웨이가 MCP 호출 대행).
-  공개 Learn MCP는 인증이 필요 없습니다. 인증이 필요한 서버는 `get_mcp_tool(headers=...)`로 헤더를 전달합니다.
-- **06 (RAG 하이브리드)** — ① 먼저 루트에서 `python src/06_rag_agent.py`를 한 번 실행해
-  인덱스(`maf-lab-knowledge-v1`)를 시드합니다. ② `azd env set`으로 `SEARCH_SERVICE_ENDPOINT`·
-  `SEARCH_INDEX_NAME`·`AZURE_OPENAI_ENDPOINT`·`EMBEDDING_DEPLOYMENT_NAME`·`AZURE_OPENAI_API_VERSION`을
-  주입합니다. ③ **배포 후** 에이전트 인스턴스 관리 ID에 RBAC을 부여합니다(아래).
-- **06 변형 (Foundry IQ)** — ① 먼저 루트에서 `python src/06_rag_agent_foundry_iq.py`를 실행해
-  지식 베이스(`maf-lab-knowledge-iq-v1-kb`)를 생성합니다. ② `SEARCH_SERVICE_ENDPOINT`·
-  `SEARCH_KNOWLEDGE_BASE_NAME`을 주입합니다. ③ 배포 후 에이전트 ID에 **Search Index Data Reader**를 부여합니다.
+  공개 Learn MCP는 인증이 필요 없습니다.
+- **06 (RAG 하이브리드)** — 먼저 `python src/06_rag_agent.py`로 인덱스를 시드하고 검색·임베딩 env를 주입한 뒤,
+  **배포 후** 에이전트 관리 ID에 `Search Index Data Reader`·`Cognitive Services OpenAI User`를 부여합니다.
+- **06 변형 (Foundry IQ)** — 먼저 `python src/06_rag_agent_foundry_iq.py`로 지식 베이스를 생성하고 검색 env를
+  주입한 뒤, **배포 후** 에이전트 ID에 `Search Index Data Reader`를 부여합니다.
 
-```bash
-# 06 · 06-IQ 전용: 배포 후 에이전트 인스턴스 관리 ID에 데이터 접근 권한 부여
-azd ai agent show                          # 출력에서 Instance Identity Principal ID 확인
-PRINC="<위에서 확인한 Principal ID>"
-SEARCH_SCOPE="<Search 서비스 리소스 ID>"     # az resource show ... --query id -o tsv
-az role assignment create --assignee-object-id "$PRINC" --assignee-principal-type ServicePrincipal \
-  --role "Search Index Data Reader" --scope "$SEARCH_SCOPE"
-# 06(하이브리드)은 임베딩도 호출하므로 추가로:
-FOUNDRY_SCOPE="<Foundry(AIServices) 리소스 ID>"
-az role assignment create --assignee-object-id "$PRINC" --assignee-principal-type ServicePrincipal \
-  --role "Cognitive Services OpenAI User" --scope "$FOUNDRY_SCOPE"
-```
+> 06·06-IQ의 env 목록과 **배포 후 RBAC 전체 명령**(`azd ai agent show`로 Principal ID 확인 →
+> `az role assignment create ...`)은 해당 폴더 README에 있습니다 —
+> [`06_rag_agent/`](src/hosted_agents/06_rag_agent/) · [`06_rag_agent_foundry_iq/`](src/hosted_agents/06_rag_agent_foundry_iq/).
 > 권한 전파에 1~2분 걸리며, 누락 시 첫 호출이 `session_not_ready`로 끝납니다.
 
 ### 8.5 테스트 방법 더 보기 (상태 · REST · 포털)
