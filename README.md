@@ -176,13 +176,17 @@ az cognitiveservices account deployment create \
 # 5) Azure AI Search 서비스 생성 (예제 06 RAG 전용)
 #    --auth-options aadOrApiKey: 키리스(Entra ID) 데이터플레인 접근을 켭니다.
 #    (기본값은 API 키 전용이라, 생략하면 RAG 실행 시 'Forbidden' 오류가 납니다.)
+#    --aad-auth-failure-mode http403: aadOrApiKey 사용 시 최신 Azure CLI가 요구하는
+#      필수 옵션입니다. (생략하면 'requires an AadAuthFailureMode parameter' 오류가 납니다.)
 #    --semantic-search free: 예제 06 변형(Foundry IQ agentic retrieval)에 필요한
 #      semantic ranker를 켭니다. (free 플랜은 월 무료 할당량 제공)
 #    ⚠️ Foundry IQ를 쓰려면 LOCATION이 agentic retrieval 지원 리전이어야 합니다
 #       (예: eastus2). 미지원 리전이면 기본 06(하이브리드) 예제만 동작합니다.
 #    리전이 용량 부족(InsufficientResourcesAvailable)이면 다른 리전을 사용하세요.
+#      (Search 서비스는 Foundry 리소스와 다른 리전이어도 됩니다. 예: Foundry=eastus2,
+#       Search=eastus. eastus도 agentic retrieval 지원 리전입니다.)
 az search service create -n $SEARCH -g $RG -l $LOCATION --sku basic \
-  --auth-options aadOrApiKey --semantic-search free
+  --auth-options aadOrApiKey --aad-auth-failure-mode http403 --semantic-search free
 
 # 5-1) (Foundry IQ 전용) Search 서비스에 시스템 할당 관리 ID 부여
 #      지식 베이스가 질의를 벡터화할 때 Search 서비스가 Azure OpenAI를 호출합니다.
@@ -215,7 +219,7 @@ az role assignment create --assignee-object-id $SEARCH_MI --assignee-principal-t
 > **이미 만든 Search 서비스에서 'Forbidden'이 난다면** 키리스(Entra ID) 인증이 꺼져 있는
 > 경우입니다. 다음으로 활성화하세요.
 > ```bash
-> az search service update -n $SEARCH -g $RG --auth-options aadOrApiKey
+> az search service update -n $SEARCH -g $RG --auth-options aadOrApiKey --aad-auth-failure-mode http403
 > ```
 
 `.env`에 채울 엔드포인트 값은 다음으로 확인합니다.
