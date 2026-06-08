@@ -35,12 +35,17 @@ from azure.identity.aio import AzureCliCredential as AioAzureCliCredential
 
 from _rag_iq import build_agentic_provider, resolve_iq_env, seed_iq_index
 from _streaming import stream_agent
+from _observability import setup_observability
 
 
 async def main():
     """Foundry IQ agentic retrieval 기반 RAG 파이프라인을 구성·실행하는 메인 함수"""
 
     print("=== RAG 에이전트 (Foundry IQ · agentic retrieval) 실행 ===\n")
+
+    # 추적·모니터링 활성화(Application Insights). 미설정 시 자동으로 건너뜁니다.
+    if setup_observability():
+        print("📊 추적 활성화: Application Insights로 트레이스를 전송합니다.\n")
 
     cfg = resolve_iq_env()
     if not cfg["project_endpoint"]:

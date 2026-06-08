@@ -46,6 +46,7 @@ from azure.search.documents.models import VectorizedQuery
 from openai import AzureOpenAI
 
 from _streaming import stream_agent
+from _observability import setup_observability
 
 
 # ── 지식 베이스 ──
@@ -252,6 +253,10 @@ async def main():
     """Azure AI Search 기반 RAG 파이프라인을 구성하고 실행하는 메인 함수"""
 
     print("=== RAG 에이전트 (Azure AI Search) 실행 ===\n")
+
+    # 추적·모니터링 활성화(Application Insights). 미설정 시 자동으로 건너뜁니다.
+    if setup_observability():
+        print("📊 추적 활성화: Application Insights로 트레이스를 전송합니다.\n")
 
     # ── 1단계: 환경 변수 확인 ──
     project_endpoint = os.getenv("PROJECT_ENDPOINT")

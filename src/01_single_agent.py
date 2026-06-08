@@ -18,12 +18,17 @@ from agent_framework.foundry import FoundryChatClient
 from azure.identity import AzureCliCredential
 
 from _streaming import stream_agent
+from _observability import setup_observability
 
 
 async def main():
     """단일 에이전트를 생성하고 실행하는 메인 함수"""
 
     print("=== 단일 에이전트 실행 ===\n")
+
+    # 추적·모니터링 활성화(Application Insights). 미설정 시 자동으로 건너뜁니다.
+    if setup_observability():
+        print("📊 추적 활성화: Application Insights로 트레이스를 전송합니다.\n")
 
     # ── 1단계: Foundry Chat 클라이언트 설정 ──
     # 환경 변수에서 프로젝트 엔드포인트와 모델 이름을 가져옵니다

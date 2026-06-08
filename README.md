@@ -231,6 +231,15 @@ az monitor app-insights component create \
 > resources 탭 → Add connection → Application Insights**로도 연결할 수 있습니다. 자세한 절차는
 > [Set up tracing in Microsoft Foundry](https://learn.microsoft.com/azure/foundry/observability/how-to/trace-agent-setup#connect-application-insights-to-your-foundry-project)를 참고하세요.
 
+> **로컬 예제(`src/`)에서 추적 켜기**: 콘솔 예제 `01`~`06`은 위 `7)`의 connection string을
+> `.env`의 `APPLICATIONINSIGHTS_CONNECTION_STRING`에 넣으면 자동으로 트레이스·메트릭을
+> Application Insights로 전송합니다(공유 헬퍼 `src/_observability.py`가 처리하며, 미설정 시
+> 추적 없이 그대로 동작). connection string은
+> `az monitor app-insights component show --app $APPINSIGHTS -g $RG --query connectionString -o tsv`로
+> 확인합니다. 전송된 트레이스는 Application Insights **Transaction search**·KQL
+> (`dependencies`/`traces`)이나, 같은 리소스를 Foundry에 연결했다면 포털 **Traces 탭**에서
+> 확인합니다.
+
 > **RAG 인덱스 생성**: 별도 명령이 필요 없습니다. 예제 06의 `06_rag_agent.py`(하이브리드)와
 > `06_rag_agent_foundry_iq.py`(Foundry IQ)가 **첫 실행 시 인덱스를 자동 생성**하고 문서를
 > 임베딩·업로드합니다(멱등). Foundry IQ 예제는 별도 인덱스(`maf-lab-knowledge-iq-v1`)와
