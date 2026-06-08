@@ -120,7 +120,7 @@ Part 2부터 예제를 하나씩 실행하며 단계적으로 확장하세요.
 
 | 도구 | 용도 | 설치 |
 |------|------|------|
-| **Python 3.10 이상 (권장: 3.12+)** | Agent Framework 코드 (지원 하한 3.10+, 이 랩은 3.12 기준으로 검증) | <https://python.org> |
+| **Python 3.14.5** | Agent Framework 코드 (이 랩은 3.14.5 기준으로 검증) | <https://python.org> |
 | **Azure CLI 2.81.0+** | Microsoft Foundry 인증(`az login` 키리스) | `az upgrade --yes` |
 
 ### 1.2 Azure 리소스 프로비저닝
@@ -820,7 +820,7 @@ python src/06_rag_agent_foundry_iq.py
 | `requirements.txt` | 컨테이너가 설치할 **런타임 의존성**. 메타패키지 `agent-framework` 대신 하위 패키지(`-core`·`-foundry`·`-foundry-hosting`)만 명시 — 메타패키지는 x86 전용 의존성을 끌어와 원격 빌드를 깨뜨림 | 패키지 추가 시 |
 | `agent.manifest.yaml` | **`azd ai agent init -m`의 입력 파일**. 에이전트 이름·프로토콜(`responses`)·필요 env·기본 모델을 선언. init이 이걸 읽어 azd 프로젝트를 생성 | 이름/모델/env 바꿀 때 |
 | `agent.yaml` | **배포 런타임 스펙**(CPU·메모리·프로토콜·env). 이 저장소에 포함되어 있고 `azd deploy`가 참조 | 리소스 조정 시 |
-| `Dockerfile` | 컨테이너 이미지 정의(`python:3.13-slim`, 포트 8088). **코드(ZIP) 모드에선 안 쓰임**, 컨테이너 모드에서만 사용 | 컨테이너 모드일 때만 |
+| `Dockerfile` | 컨테이너 이미지 정의(`python:3.14.5-slim`, 포트 8088). **코드(ZIP) 모드에선 안 쓰임**, 컨테이너 모드에서만 사용 | 컨테이너 모드일 때만 |
 | `.env.example` | **로컬 테스트용** 환경변수 템플릿. `cp .env.example .env` 후 값 입력(배포되면 런타임이 자동 주입) | 로컬 실행 전 |
 | `.dockerignore`·`.azdignore` | 이미지·업로드에서 제외할 파일(`.venv`·`__pycache__`·매니페스트 등) | 보통 그대로 |
 
@@ -849,7 +849,7 @@ azd ai agent init --no-prompt \
   -m "$REPO/src/hosted_agents/01_single_agent/agent.manifest.yaml" \
   --agent-name maf-lab-single-agent \
   --project-id "$(az cognitiveservices account show -n $FOUNDRY -g $RG --query id -o tsv)/projects/$PROJECT" \
-  --model-deployment gpt-5.4 --deploy-mode code --runtime python_3_13 \
+  --model-deployment gpt-5.4 --deploy-mode code --runtime python_3_14 \
   --entry-point main.py --protocol responses --force
 azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME gpt-5.4 && azd env set AI_AGENT_PENDING_PROVISION ""
 ```
@@ -894,7 +894,7 @@ azd ai agent invoke "Microsoft Agent Framework가 무엇인가요?"   # 배포�
 ```bash
 PROJECT_ID="$(az cognitiveservices account show -n $FOUNDRY -g $RG --query id -o tsv)/projects/$PROJECT"
 R="$REPO/src/hosted_agents"
-COMMON="--no-prompt --project-id $PROJECT_ID --model-deployment gpt-5.4 --deploy-mode code --runtime python_3_13 --entry-point main.py --protocol responses --force"
+COMMON="--no-prompt --project-id $PROJECT_ID --model-deployment gpt-5.4 --deploy-mode code --runtime python_3_14 --entry-point main.py --protocol responses --force"
 
 # 원하는 예제의 줄을 '그 예제 전용 빈 폴더'에서 실행하세요 (한 폴더 = 한 에이전트)
 azd ai agent init -m "$R/01_single_agent/agent.manifest.yaml"          --agent-name maf-lab-single-agent        $COMMON
@@ -967,7 +967,7 @@ curl -X POST "$BASE_URL/agents/<에이전트-이름>/endpoint/protocols/openai/r
 
 ### 8.6 (대안) 컨테이너 이미지로 배포
 
-코드(ZIP) 대신 각 폴더의 `Dockerfile`(`python:3.13-slim`, 포트 `8088`)로 **직접 빌드한 이미지**를
+코드(ZIP) 대신 각 폴더의 `Dockerfile`(`python:3.14.5-slim`, 포트 `8088`)로 **직접 빌드한 이미지**를
 배포할 수도 있습니다. `init` 시 `--deploy-mode container`(런타임은 Dockerfile이 정의하므로 `--runtime` 생략)로만
 바꾸면 됩니다. 단, **`linux/amd64`** 이미지가 필요하고(Apple Silicon은 `docker build --platform linux/amd64 .`),
 Azure Container Registry가 추가로 필요합니다(azd가 **AcrPull** 권한 자동 부여).

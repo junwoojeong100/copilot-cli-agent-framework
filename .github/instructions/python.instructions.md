@@ -6,8 +6,8 @@ applyTo: "**/*.py"
 
 ## 가상환경 설정
 
-- Python 3.10+ 기반 `.venv` 가상환경을 사용한다.
-- 권장 버전은 Python 3.12이다.
+- Python 3.14.5 기반 `.venv` 가상환경을 사용한다.
+- 권장 버전은 Python 3.14.5이다.
 - 가상환경 생성 및 활성화:
   ```bash
   python -m venv .venv

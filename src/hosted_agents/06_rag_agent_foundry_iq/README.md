@@ -78,7 +78,7 @@ azd ai agent init --no-prompt \
   --agent-name maf-lab-rag-iq-agent \
   --project-id "<Foundry 프로젝트 리소스 ID>" \
   --model-deployment gpt-5.4 \
-  --deploy-mode code --runtime python_3_13 --entry-point main.py \
+  --deploy-mode code --runtime python_3_14 --entry-point main.py \
   --protocol responses --force
 
 # .env.example을 참고해 Foundry IQ 관련 환경 변수까지 설정
