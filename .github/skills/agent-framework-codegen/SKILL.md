@@ -1,6 +1,6 @@
 ---
 name: agent-framework-codegen
-description: "Microsoft Agent Framework(Python, agent-framework 1.7.x) SDK로 AI 에이전트·워크플로우 코드 생성. USE FOR: Agent Framework 코드 생성, 에이전트 추가, Sequential·Concurrent·GroupChat·Handoff·Magentic 오케스트레이션, WorkflowBuilder 조건부 그래프, 에이전트 합성(as_tool), MCP 도구 연동, RAG(컨텍스트 프로바이더), Microsoft Foundry 연동. DO NOT USE FOR: Azure 리소스 배포·관리."
+description: "Microsoft Agent Framework(Python, agent-framework 1.8.x) SDK로 AI 에이전트·워크플로우 코드 생성. USE FOR: Agent Framework 코드 생성, 에이전트 추가, Sequential·Concurrent·GroupChat·Handoff·Magentic 오케스트레이션, WorkflowBuilder 조건부 그래프, 에이전트 합성(as_tool), MCP 도구 연동, RAG(컨텍스트 프로바이더), Microsoft Foundry 연동. DO NOT USE FOR: Azure 리소스 배포·관리."
 ---
 
 # Microsoft Agent Framework 코드 생성 스킬
@@ -9,7 +9,7 @@ description: "Microsoft Agent Framework(Python, agent-framework 1.7.x) SDK로 AI
 따라야 하는 패턴과 레퍼런스입니다. 핵심 예제(`01`~`06`)는 `src/`의 콘솔 스크립트이며,
 `FoundryChatClient`로 Microsoft Foundry에 연결합니다.
 
-> **기준 버전**: `agent-framework == 1.7.x` (오케스트레이션 `agent-framework-orchestrations`,
+> **기준 버전**: `agent-framework == 1.8.x` (오케스트레이션 `agent-framework-orchestrations`,
 > Foundry 연동 `agent-framework-foundry`). 아래 API 시그니처는 이 버전 기준으로 검증되었습니다.
 
 ---

@@ -21,7 +21,7 @@
 
 ## 기술 스택
 
-- **AI Framework**: Microsoft Agent Framework — `agent-framework` **1.7.x**
+- **AI Framework**: Microsoft Agent Framework — `agent-framework` **1.8.x**
   - 핵심: `agent_framework`(`Agent` 등) · 오케스트레이션: `agent_framework.orchestrations`
   - Foundry 연동: `agent_framework.foundry`(`FoundryChatClient`)
   - Azure 연동: `agent_framework.azure`(`AzureAISearchContextProvider` 등)
@@ -57,7 +57,7 @@
 
 에이전트·워크플로우 코드 생성 시 **반드시 `agent-framework-codegen` 스킬**을 참조한다.
 (`.github/skills/agent-framework-codegen/SKILL.md` — import 경로, 5가지 오케스트레이션,
-`WorkflowBuilder`, 에이전트 합성(`as_tool`), MCP 연동, RAG, 트러블슈팅의 검증된 1.7.x 패턴 수록)
+`WorkflowBuilder`, 에이전트 합성(`as_tool`), MCP 연동, RAG, 트러블슈팅의 검증된 1.8.x 패턴 수록)
 
 ### 핵심 제약 (항상 적용)
 
