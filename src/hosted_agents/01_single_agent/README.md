@@ -104,6 +104,13 @@ Foundry는 Hosted Agent의 **server-side trace를 자동 수집**합니다.
 추적하고, Application Insights에서 토큰·비용 메트릭을 확인할 수 있습니다.
 (런타임이 `APPLICATIONINSIGHTS_CONNECTION_STRING`을 자동 주입합니다.)
 
+> **배포 전에 트레이싱을 먼저 켜야 하나요?** 필수는 아닙니다. server-side 트레이싱은
+> **코드 변경 없이** Foundry 프로젝트에 **Application Insights를 연결**하면 켜지고, 이미
+> 배포된 에이전트에도 **재배포 없이** 적용됩니다(연결 후 수 분 내). 다만 **배포 전에
+> 연결**해두면 첫 호출부터 빠짐없이 추적되므로 권장합니다. 연결은 포털 **프로젝트 →
+> Agents → Traces → `Connect`**(또는 Project details → Connected resources → Add
+> connection → Application Insights)에서 합니다.
+
 > Hosted Agents는 현재 **preview**입니다. 권장 코드 ZIP 배포 모드는 로컬 Docker가
 > 필요 없습니다. 컨테이너 배포 모드를 선택하는 경우에만 `linux/amd64` 이미지가
 > 필요합니다.
