@@ -12,12 +12,6 @@ description: "Microsoft Agent Framework(Python, agent-framework 1.8.x) SDK로 AI
 > **기준 버전**: `agent-framework == 1.8.x` (오케스트레이션 `agent-framework-orchestrations`,
 > Foundry 연동 `agent-framework-foundry`). 아래 API 시그니처는 이 버전 기준으로 검증되었습니다.
 
-## 0. 핵심 사실 (항상 적용)
-
-- 핵심 에이전트 클래스는 **`agent_framework.Agent`** (이 버전에 `ChatAgent` 없음).
-- 모든 호출은 **`async/await`**(동기 금지). `FoundryChatClient`는 **한 번만** 생성해 공유한다.
-- `instructions`·노출 텍스트는 한국어, 엔드포인트·키는 `.env`에서 로드한다(`load_dotenv`).
-
 ## 1. SDK Import 경로
 
 ```python
@@ -209,7 +203,6 @@ for output in result.get_outputs():
 - `.with_autonomous_mode()` — 사용자 입력 없이 자동 진행
 - `.with_termination_condition(fn)` — 종료 조건 지정
 - `.build()` — `Workflow` 생성
-
 
 ## 8. Magentic 워크플로우 (매니저 주도 동적 협업)
 
