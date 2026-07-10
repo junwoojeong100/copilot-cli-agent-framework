@@ -35,7 +35,7 @@ MODEL = (
 )
 
 
-def main():
+def main() -> None:
     """단일 에이전트를 만들어 Responses 프로토콜로 호스팅하는 메인 함수"""
 
     if not PROJECT_ENDPOINT:
@@ -46,10 +46,11 @@ def main():
     # ── 1단계: Foundry Chat 클라이언트 설정 ──
     # 컨테이너 안에서는 전용 관리 ID로 인증되므로 DefaultAzureCredential을 사용합니다.
     # (로컬에서는 az login 세션을 자동으로 사용합니다.)
+    credential = DefaultAzureCredential()
     client = FoundryChatClient(
         project_endpoint=PROJECT_ENDPOINT,
         model=MODEL,
-        credential=DefaultAzureCredential(),
+        credential=credential,
     )
 
     # ── 2단계: 에이전트 생성 ──
@@ -69,7 +70,10 @@ def main():
     # server.run()은 동기 호출입니다(asyncio.run으로 감싸지 않습니다).
     # /responses 엔드포인트가 8088 포트에서 열립니다.
     server = ResponsesHostServer(agent)
-    server.run()
+    try:
+        server.run()
+    finally:
+        credential.close()
 
 
 if __name__ == "__main__":

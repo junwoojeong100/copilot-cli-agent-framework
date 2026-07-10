@@ -9,8 +9,21 @@ description: "Microsoft Agent Framework(Python, agent-framework 1.8.x) SDK로 AI
 따라야 하는 패턴과 레퍼런스입니다. 핵심 예제(`01`~`06`)는 `src/`의 콘솔 스크립트이며,
 `FoundryChatClient`로 Microsoft Foundry에 연결합니다.
 
-> **기준 버전**: `agent-framework == 1.8.x` (오케스트레이션 `agent-framework-orchestrations`,
-> Foundry 연동 `agent-framework-foundry`). 아래 API 시그니처는 이 버전 기준으로 검증되었습니다.
+> **기준 버전**: MAF core/foundry `1.8.1`. 메타패키지 `agent-framework`는 사용하지 않고,
+> 아래처럼 예제에 필요한 하위 패키지를 정확히 고정합니다. 아래 API 시그니처는 이 조합으로
+> 검증되었습니다.
+
+| 용도 | 고정 버전 |
+|------|-----------|
+| Core / OpenAI / Foundry | `agent-framework-core==1.8.1` · `agent-framework-openai==1.8.1` · `agent-framework-foundry==1.8.1` |
+| 오케스트레이션 | `agent-framework-orchestrations==1.0.0rc3` |
+| Azure AI Search 컨텍스트 프로바이더 | `agent-framework-azure-ai-search==1.0.0b260521` |
+| Hosted Agent | `agent-framework-foundry-hosting==1.0.0a260528` |
+| Hosted 프로토콜 / azd 확장 | Responses `1.0.0` / `azure.ai.agents==0.1.37-preview` |
+
+> `agent-framework-orchestrations==1.0.0`과 최신 Azure AI Search/hosting 프리릴리스는
+> MAF core 1.9 이상을 요구할 수 있습니다. 개별 패키지만 임의로 업그레이드하지 말고
+> 저장소의 `requirements.txt` 조합을 함께 갱신·검증합니다.
 
 ## 1. SDK Import 경로
 
@@ -58,19 +71,23 @@ from agent_framework import Agent
 from agent_framework.foundry import FoundryChatClient
 from azure.identity import AzureCliCredential
 
-async def main():
+async def main() -> None:
     project_endpoint = os.getenv("PROJECT_ENDPOINT")
     model = os.getenv("MODEL_DEPLOYMENT_NAME", "gpt-5.4")
     if not project_endpoint:
         print("오류: PROJECT_ENDPOINT 환경 변수를 설정해주세요.")
         sys.exit(1)
 
-    client = FoundryChatClient(
-        project_endpoint=project_endpoint,
-        model=model,
-        credential=AzureCliCredential(),
-    )
-    # ... 에이전트/워크플로우 구성 ...
+    credential = AzureCliCredential()
+    try:
+        client = FoundryChatClient(
+            project_endpoint=project_endpoint,
+            model=model,
+            credential=credential,
+        )
+        # ... 에이전트/워크플로우 구성·실행 ...
+    finally:
+        credential.close()
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -78,6 +95,7 @@ if __name__ == "__main__":
 
 - `FoundryChatClient`의 인자는 **키워드 전용**이다(`project_endpoint=`, `model=`, `credential=`).
 - 인증은 키리스(`AzureCliCredential` = 로컬 `az login` 세션)로 한다.
+- 자격 증명은 `finally`에서 닫아 내부 전송 리소스를 정리한다.
 
 ## 3. 단일 에이전트 (생성·실행·반환 타입)
 
@@ -319,8 +337,8 @@ learn_mcp = MCPStreamableHTTPTool(
     name="MicrosoftLearn",
     url="https://learn.microsoft.com/api/mcp",
     description="Microsoft/Azure 공식 문서·코드 샘플 검색",
-    # 인증이 필요하면 header_provider로 헤더를 동적 제공
-    # header_provider=lambda: {"Authorization": f"Bearer {token}"},
+    # 인증이 필요하면 런타임 kwargs를 받는 header_provider로 헤더를 동적 제공
+    # header_provider=lambda _: {"Authorization": f"Bearer {token}"},
 )
 
 # async with 안에서만 세션 활성화 (진입=connect, 종료=close)
@@ -339,7 +357,8 @@ async with learn_mcp:
 - `MCPWebsocketTool` — WebSocket 서버
 
 - 반드시 `async with mcp_tool:` 컨텍스트 안에서 에이전트를 생성·실행한다.
-- 인증 헤더는 `headers=`가 아니라 **`header_provider`**(헤더를 반환하는 콜러블)로 전달한다.
+- 인증 헤더는 `headers=`가 아니라 **`header_provider`**로 전달한다. MAF 1.8.1의 콜백은
+  런타임 키워드 인자 딕셔너리 하나를 받으므로 `lambda _: {...}` 형태여야 한다.
 - 여러 도구는 `tools=[tool_a, tool_b]` 리스트로 전달한다.
 
 ## 13. RAG (검색 증강 생성)
@@ -367,24 +386,33 @@ result = await agent.run(augmented)          # 3) 생성
 
 ```python
 from agent_framework.azure import AzureAISearchContextProvider
+from azure.identity.aio import AzureCliCredential as AioAzureCliCredential
 
-provider = AzureAISearchContextProvider(
-    endpoint=search_endpoint,
-    index_name=index_name,
-    credential=AzureCliCredential(),
-)
-agent = Agent(
-    client=client,
-    name="RAG_어시스턴트",
-    instructions="제공된 컨텍스트만 근거로 답하고, 근거 문서 제목을 [출처: ...]로 표시한다.",
-    context_providers=[provider],     # 검색을 프로바이더에 위임 (수동 검색 불필요)
-)
-result = await agent.run(question)
+aio_credential = AioAzureCliCredential()
+try:
+    async with AzureAISearchContextProvider(
+        endpoint=search_endpoint,
+        index_name=index_name,
+        mode="agentic",
+        model=chat_model_deployment,               # 질의 계획용 채팅 모델
+        azure_openai_resource_url=aoai_resource_url,
+        credential=aio_credential,
+    ) as provider:
+        agent = Agent(
+            client=client,
+            name="RAG_어시스턴트",
+            instructions="제공된 컨텍스트만 근거로 답하고 출처를 표시한다.",
+            context_providers=[provider],          # 수동 검색 불필요
+        )
+        result = await agent.run(question)
+finally:
+    await aio_credential.close()
 ```
 
 - 정확도를 좌우하는 두 축: **(1) 검색 품질**, **(2) "문서 밖 추측 금지" 지시문**.
 - 13.1은 `SEARCH_SERVICE_ENDPOINT`·`SEARCH_INDEX_NAME`이 필요하다(인덱스 없으면 자동 생성).
-- 13.2는 인덱스에 **semantic 구성**이 있어야 한다(agentic retrieval 요건).
+- 13.2는 인덱스에 **기본 semantic 구성**이 있어야 하며, agentic 모드에서는 질의 계획용
+  채팅 모델·Azure OpenAI 리소스 URL·비동기 자격 증명이 필요하다.
 
 ## 14. 트러블슈팅
 
@@ -401,7 +429,8 @@ result = await agent.run(question)
 - `WorkflowBuilder` 분기가 항상 첫 케이스 → 조건은 순서대로 평가·첫 `True`에서 멈춤, 좁은 조건부터 배치
 - MCP 도구를 호출하지 않음 → `tools=` 누락, 또는 `async with mcp_tool:` 밖에서 실행
 - RAG가 엉뚱한 답 → 검색 결과 빈약 또는 "문서 밖 추측 금지" 지시문 누락
-- `ImportError: agent_framework...` → `pip install -U agent-framework`, 가상환경 활성화 확인
+- `ImportError: agent_framework...` → 가상환경 활성화 후 `pip install -r requirements.txt` 실행
+- 설치 후 MAF API 불일치 → 프리릴리스를 개별 업그레이드하지 말고 상단 호환 매트릭스로 재설치
 
 ## 15. 참고 — 예제 매핑 / 새 예제 규칙
 

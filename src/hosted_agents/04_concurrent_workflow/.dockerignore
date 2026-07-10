@@ -5,3 +5,10 @@ __pycache__
 *.pyd
 .Python
 .env
+.env.*
+.git
+.DS_Store
+README.md
+agent.yaml
+agent.manifest.yaml
+.azdignore

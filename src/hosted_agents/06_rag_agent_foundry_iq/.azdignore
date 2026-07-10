@@ -1,3 +1,12 @@
 agent.manifest.yaml
 agent.yaml
 .env.example
+.env
+.env.*
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.git/
+.DS_Store

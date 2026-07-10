@@ -8,12 +8,13 @@ retrieval)에 위임합니다. ``AzureAISearchContextProvider``(agentic 모드)�
 
 전제 — 지식 베이스 사전 생성:
   이 호스팅 예제는 **이미 생성된 Foundry IQ 지식 베이스**(기본
-  ``maf-lab-knowledge-iq-v1-kb``)에 연결만 합니다. 저장소 루트에서
+  ``maf-lab-knowledge-iq-v2-kb``)에 연결만 합니다. 저장소 루트에서
   ``src/06_rag_agent_foundry_iq.py``를 한 번 실행하면 인덱스 시드 + 지식 베이스
   생성이 끝납니다(자동 생성에 필요한 컨트롤플레인 권한은 콘솔 실행 사용자에게만
   요구되고, 호스팅 인스턴스에는 검색(데이터 리더) 권한만 있으면 됩니다).
 """
 
+import asyncio
 import os
 
 from agent_framework import Agent
@@ -38,11 +39,11 @@ MODEL = (
 )
 SEARCH_ENDPOINT = os.getenv("SEARCH_SERVICE_ENDPOINT")
 # 기존 지식 베이스 이름. 콘솔 예제가 만든 ``<index>-kb`` 규칙을 따릅니다.
-KNOWLEDGE_BASE_NAME = os.getenv("SEARCH_KNOWLEDGE_BASE_NAME", "maf-lab-knowledge-iq-v1-kb")
+KNOWLEDGE_BASE_NAME = os.getenv("SEARCH_KNOWLEDGE_BASE_NAME", "maf-lab-knowledge-iq-v2-kb")
 REASONING_EFFORT = os.getenv("FOUNDRY_IQ_REASONING_EFFORT", "minimal")
 
 
-def main():
+async def main() -> None:
     """Foundry IQ 컨텍스트 프로바이더를 가진 에이전트를 Responses 프로토콜로 호스팅"""
 
     if not PROJECT_ENDPOINT:
@@ -51,6 +52,10 @@ def main():
         )
     if not SEARCH_ENDPOINT:
         raise SystemExit("오류: SEARCH_SERVICE_ENDPOINT 환경 변수를 설정해주세요.")
+    if REASONING_EFFORT not in {"minimal", "low", "medium"}:
+        raise SystemExit(
+            "오류: FOUNDRY_IQ_REASONING_EFFORT는 minimal, low, medium 중 하나여야 합니다."
+        )
 
     # ── 1단계: 자격 증명 준비 ──
     # FoundryChatClient는 동기, 컨텍스트 프로바이더(비동기 Search 클라이언트)는
@@ -59,40 +64,43 @@ def main():
     credential = DefaultAzureCredential()
     aio_credential = AioDefaultAzureCredential()
 
-    # ── 2단계: Foundry IQ agentic 컨텍스트 프로바이더 (기존 지식 베이스에 연결) ──
-    # 기존 지식 베이스에 연결만 하므로 검색(데이터 리더) 권한만 필요합니다.
-    # 프로바이더의 비동기 클라이언트는 프로세스 수명 동안 유지됩니다.
-    provider = AzureAISearchContextProvider(
-        endpoint=SEARCH_ENDPOINT,
-        knowledge_base_name=KNOWLEDGE_BASE_NAME,
-        mode="agentic",
-        credential=aio_credential,
-        retrieval_reasoning_effort=REASONING_EFFORT,
-    )
+    try:
+        # ── 2단계: Foundry IQ agentic 컨텍스트 프로바이더 (기존 지식 베이스에 연결) ──
+        # async with가 프로바이더 내부의 비동기 Search 클라이언트를 종료합니다.
+        async with AzureAISearchContextProvider(
+            endpoint=SEARCH_ENDPOINT,
+            knowledge_base_name=KNOWLEDGE_BASE_NAME,
+            mode="agentic",
+            credential=aio_credential,
+            retrieval_reasoning_effort=REASONING_EFFORT,
+        ) as provider:
+            # ── 3단계: RAG 에이전트 생성 ──
+            # 대화 이력은 호스팅 인프라가 관리하므로 store=False를 지정합니다.
+            agent = Agent(
+                client=FoundryChatClient(
+                    project_endpoint=PROJECT_ENDPOINT,
+                    model=MODEL,
+                    credential=credential,
+                ),
+                name="고객지원_RAG_어시스턴트",
+                instructions=(
+                    "당신은 고객 지원 어시스턴트입니다. "
+                    "반드시 제공된 검색 컨텍스트 안의 정보만 근거로 한국어로 답변하고, "
+                    "컨텍스트에 없는 내용은 추측하지 말고 "
+                    "'관련 정보를 찾을 수 없습니다'라고 답하세요. "
+                    "답변 끝에 근거가 된 문서 제목을 [출처: ...] 형식으로 표시하세요."
+                ),
+                context_providers=[provider],
+                default_options={"store": False},
+            )
 
-    # ── 3단계: RAG 에이전트 생성 ──
-    # 대화 이력은 호스팅 인프라가 관리하므로 store=False를 지정합니다.
-    agent = Agent(
-        client=FoundryChatClient(
-            project_endpoint=PROJECT_ENDPOINT,
-            model=MODEL,
-            credential=credential,
-        ),
-        name="고객지원_RAG_어시스턴트",
-        instructions=(
-            "당신은 고객 지원 어시스턴트입니다. "
-            "반드시 제공된 검색 컨텍스트 안의 정보만 근거로 한국어로 답변하고, "
-            "컨텍스트에 없는 내용은 추측하지 말고 '관련 정보를 찾을 수 없습니다'라고 답하세요. "
-            "답변 끝에 근거가 된 문서 제목을 [출처: ...] 형식으로 표시하세요."
-        ),
-        context_providers=[provider],
-        default_options={"store": False},
-    )
-
-    # ── 4단계: Responses 프로토콜 서버로 호스팅 ──
-    server = ResponsesHostServer(agent)
-    server.run()
+            # ── 4단계: Responses 프로토콜 서버로 호스팅 ──
+            server = ResponsesHostServer(agent)
+            await server.run_async()
+    finally:
+        await aio_credential.close()
+        credential.close()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

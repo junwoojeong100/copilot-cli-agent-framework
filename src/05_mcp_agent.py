@@ -26,7 +26,7 @@ from azure.identity import AzureCliCredential
 from _streaming import stream_agent
 
 
-async def main():
+async def main() -> None:
     """MCP 도구를 연결한 에이전트를 실행하는 메인 함수"""
 
     print("=== MCP 도구 연동 에이전트 실행 ===\n")
@@ -45,11 +45,12 @@ async def main():
     )
     print(f"질문: {question}\n")
 
+    credential = AzureCliCredential()
     try:
         client = FoundryChatClient(
             project_endpoint=project_endpoint,
             model=model,
-            credential=AzureCliCredential(),
+            credential=credential,
         )
 
         # ── 2단계: MCP 도구 정의 ──
@@ -87,6 +88,8 @@ async def main():
     except Exception as e:
         print(f"에이전트 실행 중 오류 발생: {e}")
         sys.exit(1)
+    finally:
+        credential.close()
 
     print("\n=== 실행 완료 ===")
 

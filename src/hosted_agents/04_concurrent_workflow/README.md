@@ -3,6 +3,10 @@
 이 저장소 `src/04_concurrent_workflow.py`의 병렬 검토(**보안·성능·UX 리뷰어**)를
 그대로 가져와, `Workflow.as_agent()`로 감싼 뒤 Foundry **Hosted Agent**로 배포합니다.
 
+> **호환성 고정**: MAF `1.8.1` + hosting `1.0.0a260528` + Responses `1.0.0` +
+> azd `azure.ai.agents` 확장 `0.1.37-preview` 조합입니다. 최신 확장/hosting으로
+> 개별 업그레이드하면 Responses 2.0·MAF core 1.10 이상 요구사항과 충돌할 수 있습니다.
+
 ## 핵심 코드 (`main.py`)
 
 ```python
@@ -31,7 +35,8 @@ server.run()
 ## 로컬 실행 & 배포
 
 ```bash
-azd ext install azure.ai.agents && azd auth login
+azd extension install azure.ai.agents --version 0.1.37-preview --force
+azd auth login
 mkdir -p ~/deploy/concurrent-workflow && cd ~/deploy/concurrent-workflow
 REPO="/path/to/agent-framework-labs"
 azd ai agent init --no-prompt \

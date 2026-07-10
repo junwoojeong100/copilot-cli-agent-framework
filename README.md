@@ -233,8 +233,8 @@ az monitor app-insights component create \
 
 > **RAG 인덱스 생성**: 별도 명령이 필요 없습니다. 예제 06의 `06_rag_agent.py`(하이브리드)와
 > `06_rag_agent_foundry_iq.py`(Foundry IQ)가 **첫 실행 시 인덱스를 자동 생성**하고 문서를
-> 임베딩·업로드합니다(멱등). Foundry IQ 예제는 별도 인덱스(`maf-lab-knowledge-iq-v1`)와
-> 지식 베이스(`maf-lab-knowledge-iq-v1-kb`)까지 자동으로 만듭니다.
+> 임베딩·업로드합니다(멱등). Foundry IQ 예제는 별도 인덱스(`maf-lab-knowledge-iq-v2`)와
+> 지식 베이스(`maf-lab-knowledge-iq-v2-kb`)까지 자동으로 만듭니다.
 
 > **이미 만든 Search 서비스에서 'Forbidden'이 난다면** 키리스(Entra ID) 인증이 꺼져 있는
 > 경우입니다. 다음으로 활성화하세요.
@@ -261,10 +261,26 @@ echo "https://$SEARCH.search.windows.net"
 
 ```bash
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
+python -m pip check
 cp .env.example .env        # 아래 값 입력
 az login                    # 예제는 AzureCliCredential로 이 로그인 세션을 사용
 ```
+
+이 저장소는 MAF 1.8.x API와 재현 가능한 설치를 위해 메타패키지 `agent-framework` 대신
+필요한 하위 패키지를 정확히 고정합니다.
+
+| 용도 | 고정 버전 |
+|------|-----------|
+| Core / OpenAI / Foundry | `agent-framework-core==1.8.1` · `agent-framework-openai==1.8.1` · `agent-framework-foundry==1.8.1` |
+| 오케스트레이션 | `agent-framework-orchestrations==1.0.0rc3` |
+| Azure AI Search 컨텍스트 프로바이더 | `agent-framework-azure-ai-search==1.0.0b260521` |
+| Hosted Agent | `agent-framework-foundry-hosting==1.0.0a260528` |
+| Hosted 프로토콜 / azd 확장 | Responses `1.0.0` / `azure.ai.agents==0.1.37-preview` |
+
+> ⚠️ `agent-framework-orchestrations==1.0.0`과 최신 Search/hosting 프리릴리스는 MAF core
+> 1.9 이상을 요구할 수 있습니다. 패키지 하나만 임의로 업그레이드하지 말고 전체 호환
+> 매트릭스를 함께 갱신한 뒤 `python -m pip check`로 확인하세요.
 
 컨텍스트별 주요 환경 변수는 다음과 같습니다.
 
@@ -274,6 +290,12 @@ az login                    # 예제는 AzureCliCredential로 이 로그인 세�
 | `MODEL_DEPLOYMENT_NAME` | 사용할 모델 배포 이름 | 로컬 실습 (선택, 기본값 있음) |
 | `SEARCH_SERVICE_ENDPOINT` | Azure AI Search 서비스 엔드포인트 | RAG 실습 (06번) |
 | `SEARCH_INDEX_NAME` | 검색 인덱스 이름 | RAG 실습 (06번) |
+| `SEARCH_INDEX_NAME_IQ` | Foundry IQ용 별도 인덱스 이름 | 로컬 RAG IQ 실습 |
+| `AZURE_OPENAI_ENDPOINT` | 문서·질문 임베딩 호출 엔드포인트 | RAG 실습 |
+| `AZURE_OPENAI_RESOURCE_URL` | Foundry IQ 질의 벡터화용 리소스 URL | RAG IQ 실습 (선택) |
+| `EMBEDDING_DEPLOYMENT_NAME` | 임베딩 모델 배포 이름 | RAG 실습 |
+| `AZURE_OPENAI_API_VERSION` | Azure OpenAI API 버전 | RAG 실습 |
+| `FOUNDRY_IQ_REASONING_EFFORT` | agentic 질의 계획 강도(`minimal`/`low`/`medium`) | RAG IQ 실습 |
 | `SEARCH_KNOWLEDGE_BASE_NAME` | Foundry IQ 지식 기반 이름 | RAG IQ 실습 (06_foundry_iq) |
 
 > 참고: 로컬 Python 예제 `src/06_rag_agent_foundry_iq.py`는 `SEARCH_INDEX_NAME_IQ`를 사용해
@@ -289,13 +311,13 @@ MODEL_DEPLOYMENT_NAME=gpt-5.4
 
 # 예제 06 (RAG) — Azure AI Search + 임베딩
 SEARCH_SERVICE_ENDPOINT=https://your-search-service.search.windows.net
-SEARCH_INDEX_NAME=maf-lab-knowledge-v1
+SEARCH_INDEX_NAME=maf-lab-knowledge-v2
 AZURE_OPENAI_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
 EMBEDDING_DEPLOYMENT_NAME=text-embedding-3-large
 AZURE_OPENAI_API_VERSION=2024-10-21
 
 # 예제 06 변형 (Foundry IQ RAG) — 지식 베이스 + agentic retrieval
-SEARCH_INDEX_NAME_IQ=maf-lab-knowledge-iq-v1
+SEARCH_INDEX_NAME_IQ=maf-lab-knowledge-iq-v2
 # (선택) 일부 환경은 .openai.azure.com 형식의 벡터화 리소스 URL을 요구합니다.
 # AZURE_OPENAI_RESOURCE_URL=https://your-resource.openai.azure.com/
 # (선택) 질의 계획 추론 강도 (minimal/low/medium, 기본값: minimal)
@@ -666,7 +688,7 @@ python src/06_rag_agent.py
   → 임베딩 차원: 3072
 
 [2단계] Azure AI Search 인덱스 확인/생성...
-  → 기존 인덱스 사용: maf-lab-knowledge-v1
+  → 기존 인덱스 사용: maf-lab-knowledge-v2
 
 [3단계] 지식 베이스 임베딩 및 업로드...
   → 문서 4건 임베딩·업로드 완료
@@ -686,7 +708,11 @@ Pro 요금제는 월 29,900원입니다. 기술 지원은 우선 기술 지원�
 ```
 
 > ℹ️ 첫 실행 시 `[2단계]`는 `인덱스 생성 완료 ...`로, 인덱스가 이미 있으면 `기존 인덱스 사용 ...`으로
-> 출력됩니다. 실행 시 `ExperimentalWarning`이 함께 표시될 수 있으나 동작에는 영향이 없습니다.
+> 출력됩니다. 기존 인덱스의 필수 필드·벡터 차원·프로필이 현재 임베딩 모델과 다르면
+> 잘못된 검색을 계속하지 않고 새 인덱스 이름을 사용하라는 오류를 표시합니다.
+> 기본 이름의 `v2`는 업로드된 벡터까지 인덱싱 반영을 확인하도록 벡터 필드 저장 설정을
+> 강화한 스키마 버전입니다. 기존 `v1` 인덱스는 삭제하지 않고 그대로 둘 수 있습니다.
+> 실행 시 `ExperimentalWarning`이 함께 표시될 수 있으나 동작에는 영향이 없습니다.
 
 
 > ℹ️ `VectorizedQuery`의 후보 수 인자는 SDK 버전에 따라 이름이 다릅니다. 이 랩의
@@ -697,7 +723,7 @@ Pro 요금제는 월 29,900원입니다. 기술 지원은 우선 기술 지원�
 | 환경 변수 | 설명 |
 |-----------|------|
 | `SEARCH_SERVICE_ENDPOINT` | Azure AI Search 엔드포인트 (`https://<name>.search.windows.net`) |
-| `SEARCH_INDEX_NAME` | RAG 인덱스 이름 (기본 `maf-lab-knowledge-v1`, 없으면 자동 생성) |
+| `SEARCH_INDEX_NAME` | RAG 인덱스 이름 (기본 `maf-lab-knowledge-v2`, 없으면 자동 생성) |
 | `AZURE_OPENAI_ENDPOINT` | 임베딩 호출용 Azure OpenAI 엔드포인트 (`https://<name>.cognitiveservices.azure.com/`) |
 | `EMBEDDING_DEPLOYMENT_NAME` | 임베딩 모델 배포 이름 (기본 `text-embedding-3-large`) |
 | `AZURE_OPENAI_API_VERSION` | Azure OpenAI API 버전 (기본 `2024-10-21`) |
@@ -718,18 +744,22 @@ RBAC: 실행 사용자는 검색 서비스에 **Search Service Contributor**(인
 from agent_framework.azure import AzureAISearchContextProvider
 from azure.identity.aio import AzureCliCredential as AioAzureCliCredential
 
+aio_credential = AioAzureCliCredential()
 # 인덱스로부터 지식 소스/지식 베이스(<index>-kb)를 자동 생성하고 멀티홉 검색
-async with AzureAISearchContextProvider(
-    endpoint=search_endpoint,
-    index_name="maf-lab-knowledge-iq-v1",
-    mode="agentic",
-    model=chat_model_deployment,                # 질의 계획용 채팅 모델(예: gpt-5.4)
-    azure_openai_resource_url=aoai_endpoint,
-    credential=AioAzureCliCredential(),          # 비동기 자격 증명 필수
-) as provider:
-    agent = Agent(client=client, instructions="...근거 기반 답변...",
-                  context_providers=[provider])
-    await agent.run("Pro 요금제는 얼마이고 기술 지원은 얼마나 빨리 받나요?")
+try:
+    async with AzureAISearchContextProvider(
+        endpoint=search_endpoint,
+        index_name="maf-lab-knowledge-iq-v2",
+        mode="agentic",
+        model=chat_model_deployment,              # 질의 계획용 채팅 모델(예: gpt-5.4)
+        azure_openai_resource_url=aoai_resource_url,
+        credential=aio_credential,                # 비동기 자격 증명 필수
+    ) as provider:
+        agent = Agent(client=client, instructions="...근거 기반 답변...",
+                      context_providers=[provider])
+        await agent.run("Pro 요금제는 얼마이고 기술 지원은 얼마나 빨리 받나요?")
+finally:
+    await aio_credential.close()
 ```
 
 ```bash
@@ -742,12 +772,14 @@ python src/06_rag_agent_foundry_iq.py
 | --- | --- | --- |
 | 검색 주체 | Python 코드(직접 BM25+벡터 융합) | Foundry IQ 지식 베이스(agentic 멀티홉) |
 | 증강 | 직접 프롬프트 조립 | 컨텍스트 프로바이더가 자동 주입 |
-| 인덱스 | `maf-lab-knowledge-v1` | `maf-lab-knowledge-iq-v1` (+ 기본 semantic 구성) |
+| 인덱스 | `maf-lab-knowledge-v2` | `maf-lab-knowledge-iq-v2` (+ 기본 semantic 구성) |
 | 추가 리소스 | — | semantic ranker 활성화 + agentic 지원 리전 |
 
 > **요구사항**: Azure AI Search에 **semantic ranker 활성화**(`--semantic-search free`),
 > **agentic retrieval 지원 리전**, 인덱스의 **기본 semantic 구성**(예제가 자동 생성),
 > Search 서비스 관리 ID의 Azure OpenAI 사용 권한이 필요합니다([1.2 프로비저닝](#12-azure-리소스-프로비저닝) 참고).
+> 기존 IQ 인덱스에 기본 semantic 구성이나 올바른 벡터 차원이 없으면 예제는 명시적으로
+> 실패하므로 `SEARCH_INDEX_NAME_IQ`를 새 이름으로 바꿔 다시 생성하세요.
 > Part 8 Hosted Agent 트랙에도 동일한 Foundry IQ 변형 예제가 있습니다.
 
 > ✅ **체크포인트**: 지식 베이스에 없는 질문(예: "배송비는 얼마인가요?")에 에이전트가
@@ -773,6 +805,10 @@ python src/06_rag_agent_foundry_iq.py
 
 > ⚠️ Hosted Agent 배포는 현재 **preview**입니다. 아래 권장 **코드(ZIP) 배포 모드**는 로컬 Docker가
 > 필요 없습니다(Foundry가 원격에서 빌드). 컨테이너 모드를 선택할 때만 `linux/amd64` 이미지가 필요합니다.
+> 이 저장소의 MAF 1.8.1 코드는 **Responses 프로토콜 1.0.0**,
+> `agent-framework-foundry-hosting==1.0.0a260528`,
+> azd `azure.ai.agents` 확장 `0.1.37-preview` 조합으로 검증했습니다. 최신 확장/hosting은
+> Responses 2.0과 MAF core 1.10 이상을 요구할 수 있으므로 별도로 업그레이드하지 마세요.
 
 ### 8.1 로컬 스크립트 → Hosted Agent: 무엇이 바뀌나
 
@@ -781,7 +817,7 @@ python src/06_rag_agent_foundry_iq.py
 | 로컬 예제(01~06) | Hosted Agent |
 |------------------|--------------|
 | 프롬프트 1건 처리 후 종료 | `/responses` HTTP 서버 상시 구동 |
-| `asyncio.run(main())` | `server.run()` (동기) |
+| `asyncio.run(main())` | 보통 `server.run()`; 비동기 리소스가 있는 IQ 예제는 `await server.run_async()` |
 | `AzureCliCredential`(내 로그인) | `DefaultAzureCredential`(컨테이너 전용 관리 ID) |
 | 루트 `.env`의 `PROJECT_ENDPOINT` | Foundry 주입 env `FOUNDRY_PROJECT_ENDPOINT` |
 | 대화 이력 직접 관리 | 호스팅 인프라가 관리 → 각 에이전트에 `default_options={"store": False}` |
@@ -793,7 +829,7 @@ python src/06_rag_agent_foundry_iq.py
 - credential=AzureCliCredential()
 + credential=DefaultAzureCredential()
 
-  # 2) 실행: 질문 1건 처리 후 종료 → 상시 HTTP 서버(동기)
+  # 2) 실행: 질문 1건 처리 후 종료 → 상시 HTTP 서버
 - async for update in agent.run(question, stream=True): ...   # asyncio.run(main())
 + server = ResponsesHostServer(agent); server.run()
 
@@ -806,7 +842,9 @@ python src/06_rag_agent_foundry_iq.py
 + os.getenv("FOUNDRY_PROJECT_ENDPOINT") or os.getenv("PROJECT_ENDPOINT")
 ```
 
-이 **네 군데**는 7개 예제에 **공통**으로 적용됩니다. 그 외에 예제마다 **구조 적응 한 가지**가
+이 **네 가지 원칙**은 7개 예제에 공통으로 적용됩니다. 단, Foundry IQ 예제는 비동기
+컨텍스트 프로바이더를 안전하게 정리하기 위해 `async with`와 `await server.run_async()`를
+사용합니다. 그 외에 예제마다 **구조 적응 한 가지**가
 더 붙는데, 원인은 모두 같습니다 — 로컬은 "질문 1건 처리 후 종료"하는 **일회성 스크립트**이고,
 호스팅은 여러 `/responses` 요청을 처리하는 **상시 대화형 서비스**이기 때문입니다. 그래서
 워크플로우·도구·검색을 "에이전트가 매 요청마다 스스로 호출하는 형태"로 바꿔 줍니다.
@@ -819,7 +857,7 @@ python src/06_rag_agent_foundry_iq.py
 | `04_concurrent_workflow` | 동일 | ✅ | `.as_agent()` |
 | `05_mcp_agent` | 동일 | ✅ | 클라이언트측 `MCPStreamableHTTPTool`+`async with` → **서버측** `client.get_mcp_tool(...)` (게이트웨이가 MCP 호출·수명 관리) |
 | `06_rag_agent` | 동일 | ✅ | 1회성 "검색→증강→생성" → 하이브리드 검색을 **함수 도구**로 노출(에이전트가 호출) · 인덱스 시드는 사전 전제로 분리 |
-| `06_rag_agent_foundry_iq` | 동일 | ✅ | 시드+프로바이더 생성 → **기존 지식 베이스에 연결**(`AzureAISearchContextProvider` agentic) |
+| `06_rag_agent_foundry_iq` | 동일 | ✅ | 기존 지식 베이스에 연결 + `async with`/`run_async()`로 비동기 Search 클라이언트 수명 관리 |
 
 > **워크플로우(02·03·04)**는 한 줄만 추가하면 됩니다 — `.build()` 결과를 `.as_agent()`로
 > 감싸 단일 에이전트처럼 만든 뒤 똑같이 `ResponsesHostServer`에 넘깁니다.
@@ -840,8 +878,8 @@ python src/06_rag_agent_foundry_iq.py
 
 | 파일 | 무엇을 하나 | 직접 손대나? |
 |------|-------------|-------------|
-| `main.py` | 에이전트를 만들고 `ResponsesHostServer(agent).run()`으로 `/responses` 서버를 띄우는 **진입점**. 루트 예제에서 8.1의 네 군데만 바뀐 형태 | 에이전트 로직을 바꿀 때만 |
-| `requirements.txt` | 컨테이너가 설치할 **런타임 의존성**. 메타패키지 `agent-framework` 대신 하위 패키지(`-core`·`-foundry`·`-foundry-hosting`)만 명시 — 메타패키지는 x86 전용 의존성을 끌어와 원격 빌드를 깨뜨림 | 패키지 추가 시 |
+| `main.py` | 에이전트를 만들고 `ResponsesHostServer`로 `/responses` 서버를 띄우는 **진입점**. 일반 예제는 `run()`, IQ 예제는 `run_async()` 사용 | 에이전트 로직을 바꿀 때만 |
+| `requirements.txt` | 컨테이너가 설치할 **런타임 의존성**. 메타패키지 대신 MAF 1.8.1 호환 하위 패키지를 정확히 고정 | 패키지 추가 시 |
 | `agent.manifest.yaml` | **`azd ai agent init -m`의 입력 파일**. 에이전트 이름·프로토콜(`responses`)·필요 env·기본 모델을 선언. init이 이걸 읽어 azd 프로젝트를 생성 | 이름/모델/env 바꿀 때 |
 | `agent.yaml` | **배포 런타임 스펙**(CPU·메모리·프로토콜·env). 이 저장소에 포함되어 있고 `azd deploy`가 참조 | 리소스 조정 시 |
 | `Dockerfile` | 컨테이너 이미지 정의(`python:3.14.5-slim`, 포트 8088). **코드(ZIP) 모드에선 안 쓰임**, 컨테이너 모드에서만 사용 | 컨테이너 모드일 때만 |
@@ -866,7 +904,8 @@ python src/06_rag_agent_foundry_iq.py
 
 **① 준비 + init + 모델 고정** — 빈 작업 폴더에서
 ```bash
-azd ext install azure.ai.agents && azd auth login          # 최초 1회
+azd extension install azure.ai.agents --version 0.1.37-preview --force
+azd auth login                                             # 최초 1회
 REPO=~/GitHub/agent-framework-labs                          # 이 저장소를 clone 한 경로
 mkdir -p ~/deploy/single && cd ~/deploy/single
 azd ai agent init --no-prompt \
@@ -987,13 +1026,15 @@ Azure Container Registry가 추가로 필요합니다(azd가 **AcrPull** 권한 
 | `PROJECT_ENDPOINT 환경 변수를 설정해주세요` | 루트 `.env`에 엔드포인트/모델 입력 후 경로 확인 |
 | 인증 실패 (`AzureCliCredential`) | `az login` 재실행, `az account set`으로 구독 선택 |
 | `az`에 Foundry 명령 없음 | `az upgrade --yes`로 2.81.0+ 업그레이드 |
-| `ImportError: agent_framework...` | `pip install -U agent-framework`, 가상환경 활성화 확인 |
+| `ImportError: agent_framework...` | 가상환경 활성화 후 `python -m pip install -r requirements.txt` 실행 |
+| `ResolutionTooDeep` 또는 MAF API 불일치 | 메타패키지/개별 최신 프리릴리스 대신 저장소의 고정 `requirements.txt`로 새 가상환경 구성 |
 | Workflow 출력이 `WorkflowEvent(...)` 객체로 보임 | `print(result)` 대신 `result.get_outputs()`(Sequential/Concurrent) / 이벤트의 `AgentExecutorResponse`(GroupChat)로 추출 |
 | MCP 도구를 호출 안 함 | `tools=` 전달 누락, `async with mcp_tool:` 밖에서 실행, 서버 URL 확인 |
 | RAG가 문서 밖 내용을 지어냄 | 검색 결과 빈약 또는 "추측 금지" 지시문 누락 |
 | GroupChat이 끝나지 않음 | `max_rounds` 미설정 |
 | Hosted Agent: `ModuleNotFoundError: agent_framework_foundry_hosting` | `pip install agent-framework-foundry-hosting` (배포 시점 의존성) |
-| Hosted Agent: `azd ai agent` 명령 없음 | `azd ext install azure.ai.agents`, `azd auth login` |
+| Hosted Agent: `azd ai agent` 명령 없음 | `azd extension install azure.ai.agents --version 0.1.37-preview --force` 후 `azd auth login` |
+| Hosted Agent: 프로토콜/manifest 오류 | `agent.yaml`·manifest의 Responses `1.0.0`, hosting `a260528`, azd 확장 `0.1.37-preview` 조합 확인 |
 | Hosted Agent: 배포 후 ARM 이미지 오류 | `linux/amd64` 필요 — `docker build --platform linux/amd64 .` |
 | Hosted Agent: 인증 실패 | 컨테이너는 `DefaultAzureCredential`(관리 ID) 사용, 로컬은 `az login` |
 

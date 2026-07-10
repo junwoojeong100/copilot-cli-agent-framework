@@ -26,7 +26,7 @@ from azure.identity import AzureCliCredential
 from _streaming import stream_workflow
 
 
-async def main():
+async def main() -> None:
     """순차 워크플로우를 구성하고 실행하는 메인 함수"""
 
     print("=== 순차 워크플로우 실행 ===\n")
@@ -43,13 +43,14 @@ async def main():
     print(f"입력 주제: {topic}\n")
     print("=" * 50)
 
+    credential = AzureCliCredential()
     try:
         # ── 2단계: 단계별 에이전트 생성 ──
         # 각 에이전트는 파이프라인의 한 단계를 담당합니다
         client = FoundryChatClient(
             project_endpoint=project_endpoint,
             model=model,
-            credential=AzureCliCredential(),
+            credential=credential,
         )
 
         # 분석가 에이전트 - 주제의 핵심 논점을 정리합니다
@@ -98,6 +99,8 @@ async def main():
     except Exception as e:
         print(f"순차 워크플로우 실행 중 오류 발생: {e}")
         sys.exit(1)
+    finally:
+        credential.close()
 
     print("\n=== 실행 완료 ===")
 

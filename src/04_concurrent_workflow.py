@@ -23,7 +23,7 @@ from azure.identity import AzureCliCredential
 from _streaming import stream_workflow
 
 
-async def main():
+async def main() -> None:
     """동시 워크플로우를 구성하고 실행하는 메인 함수"""
 
     print("=== 동시 워크플로우 실행 ===\n")
@@ -43,13 +43,14 @@ async def main():
     print(f"검토 대상 설계안: {design}\n")
     print("=" * 50)
 
+    credential = AzureCliCredential()
     try:
         # ── 2단계: 관점별 리뷰어 에이전트 생성 ──
         # 각 에이전트는 같은 입력을 서로 다른 관점에서 평가합니다
         client = FoundryChatClient(
             project_endpoint=project_endpoint,
             model=model,
-            credential=AzureCliCredential(),
+            credential=credential,
         )
 
         # 보안 리뷰어 - 보안 위험과 완화 방안을 평가합니다
@@ -98,6 +99,8 @@ async def main():
     except Exception as e:
         print(f"동시 워크플로우 실행 중 오류 발생: {e}")
         sys.exit(1)
+    finally:
+        credential.close()
 
     print("\n=== 실행 완료 ===")
 

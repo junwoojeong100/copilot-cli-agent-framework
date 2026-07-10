@@ -4,11 +4,15 @@
 배포합니다. Azure AI Search 하이브리드(키워드+벡터) 검색을 **함수 도구**로 노출해,
 에이전트가 질문을 받으면 스스로 검색→증강→생성을 수행합니다.
 
+> **호환성 고정**: MAF `1.8.1` + hosting `1.0.0a260528` + Responses `1.0.0` +
+> azd `azure.ai.agents` 확장 `0.1.37-preview` 조합입니다. 최신 확장/hosting으로
+> 개별 업그레이드하면 Responses 2.0·MAF core 1.10 이상 요구사항과 충돌할 수 있습니다.
+
 ## 전제 — 인덱스 시드
 
 이 호스팅 예제는 **이미 시드된 검색 인덱스**를 읽습니다.
 저장소 루트에서 `src/06_rag_agent.py`를 한 번 실행하면 동일한 인덱스
-(기본값 `maf-lab-knowledge-v1`)가 생성·시드됩니다.
+(기본값 `maf-lab-knowledge-v2`)가 생성·시드됩니다.
 
 ```bash
 python src/06_rag_agent.py   # 인덱스 생성 + 지식 베이스 시드
@@ -34,7 +38,7 @@ server.run()
 | `FOUNDRY_PROJECT_ENDPOINT` | Hosted Agent 표준. 런타임이 자동 주입 |
 | `AZURE_AI_MODEL_DEPLOYMENT_NAME` | 모델 배포 이름. 런타임이 자동 주입 |
 | `SEARCH_SERVICE_ENDPOINT` | Azure AI Search 엔드포인트 |
-| `SEARCH_INDEX_NAME` | 검색 인덱스 이름(기본 `maf-lab-knowledge-v1`) |
+| `SEARCH_INDEX_NAME` | 검색 인덱스 이름(기본 `maf-lab-knowledge-v2`) |
 | `AZURE_OPENAI_ENDPOINT` | 임베딩 호출용 Azure OpenAI 엔드포인트 |
 | `EMBEDDING_DEPLOYMENT_NAME` | 임베딩 모델 배포 이름 |
 | `AZURE_OPENAI_API_VERSION` | Azure OpenAI API 버전 |
@@ -59,7 +63,8 @@ server.run()
 ## 로컬 실행 & 배포
 
 ```bash
-azd ext install azure.ai.agents && azd auth login
+azd extension install azure.ai.agents --version 0.1.37-preview --force
+azd auth login
 mkdir -p ~/deploy/rag-agent && cd ~/deploy/rag-agent
 REPO="/path/to/agent-framework-labs"
 azd ai agent init --no-prompt \
@@ -74,7 +79,7 @@ azd ai agent init --no-prompt \
 export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
 export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4"
 export SEARCH_SERVICE_ENDPOINT="https://<your-search>.search.windows.net"
-export SEARCH_INDEX_NAME="maf-lab-knowledge-v1"
+export SEARCH_INDEX_NAME="maf-lab-knowledge-v2"
 export AZURE_OPENAI_ENDPOINT="https://<resource>.cognitiveservices.azure.com/"
 export EMBEDDING_DEPLOYMENT_NAME="text-embedding-3-large"
 export AZURE_OPENAI_API_VERSION="2024-10-21"

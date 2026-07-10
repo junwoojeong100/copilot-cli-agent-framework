@@ -20,7 +20,7 @@ from azure.identity import AzureCliCredential
 from _streaming import stream_agent
 
 
-async def main():
+async def main() -> None:
     """단일 에이전트를 생성하고 실행하는 메인 함수"""
 
     print("=== 단일 에이전트 실행 ===\n")
@@ -34,35 +34,32 @@ async def main():
         print("오류: PROJECT_ENDPOINT 환경 변수를 설정해주세요.")
         sys.exit(1)
 
-    # FoundryChatClient는 Microsoft Foundry 프로젝트에 연결합니다
+    # FoundryChatClient는 Microsoft Foundry 프로젝트에 연결합니다.
+    credential = AzureCliCredential()
     try:
         client = FoundryChatClient(
             project_endpoint=project_endpoint,
             model=model,
-            credential=AzureCliCredential(),
+            credential=credential,
         )
-    except Exception as e:
-        print(f"오류: Azure 클라이언트 초기화에 실패했습니다. `az login` 상태를 확인해주세요.\n상세: {e}")
-        sys.exit(1)
 
-    # ── 2단계: 에이전트 생성 ──
-    # 에이전트에게 역할과 지시사항을 부여합니다
-    agent = Agent(
-        client=client,
-        name="기술_어시스턴트",
-        instructions=(
-            "당신은 Microsoft 기술 전문 어시스턴트입니다. "
-            "사용자의 기술 질문에 대해 정확하고 이해하기 쉽게 한국어로 답변합니다. "
-            "답변은 간결하면서도 핵심을 포함해야 합니다."
-        ),
-    )
+        # ── 2단계: 에이전트 생성 ──
+        # 에이전트에게 역할과 지시사항을 부여합니다.
+        agent = Agent(
+            client=client,
+            name="기술_어시스턴트",
+            instructions=(
+                "당신은 Microsoft 기술 전문 어시스턴트입니다. "
+                "사용자의 기술 질문에 대해 정확하고 이해하기 쉽게 한국어로 답변합니다. "
+                "답변은 간결하면서도 핵심을 포함해야 합니다."
+            ),
+        )
 
-    # ── 3단계: 에이전트 실행 ──
-    # 질문을 전달하고 에이전트의 응답을 받습니다
-    question = "Microsoft Agent Framework가 무엇인가요?"
-    print(f"질문: {question}\n")
+        # ── 3단계: 에이전트 실행 ──
+        # 질문을 전달하고 에이전트의 응답을 받습니다.
+        question = "Microsoft Agent Framework가 무엇인가요?"
+        print(f"질문: {question}\n")
 
-    try:
         # ── 4단계: 결과 출력 (스트리밍) ──
         # stream=True로 응답을 토큰 단위로 받아 생성 과정을 실시간 출력합니다.
         await stream_agent(agent, question, label="에이전트 응답")
@@ -70,6 +67,8 @@ async def main():
     except Exception as e:
         print(f"에이전트 실행 중 오류 발생: {e}")
         sys.exit(1)
+    finally:
+        credential.close()
 
     print("\n=== 실행 완료 ===")
 

@@ -4,16 +4,16 @@
 #   docker build --platform linux/amd64 .
 FROM python:3.14.5-slim
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
 WORKDIR /app
 
 COPY . user_agent/
 WORKDIR /app/user_agent
 
-RUN if [ -f requirements.txt ]; then \
-        pip install -r requirements.txt; \
-    else \
-        echo "No requirements.txt found"; \
-    fi
+RUN python -m pip install --no-cache-dir -r requirements.txt
 
 # Responses 프로토콜 서버 포트
 EXPOSE 8088

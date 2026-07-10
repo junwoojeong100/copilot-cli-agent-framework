@@ -37,12 +37,16 @@ from _rag_iq import build_agentic_provider, resolve_iq_env, seed_iq_index
 from _streaming import stream_agent
 
 
-async def main():
+async def main() -> None:
     """Foundry IQ agentic retrieval 기반 RAG 파이프라인을 구성·실행하는 메인 함수"""
 
     print("=== RAG 에이전트 (Foundry IQ · agentic retrieval) 실행 ===\n")
 
-    cfg = resolve_iq_env()
+    try:
+        cfg = resolve_iq_env()
+    except ValueError as e:
+        print(f"오류: {e}")
+        sys.exit(1)
     if not cfg["project_endpoint"]:
         print("오류: PROJECT_ENDPOINT 환경 변수를 설정해주세요.")
         sys.exit(1)
@@ -63,7 +67,8 @@ async def main():
     try:
         # ── 1단계: Foundry IQ 인덱스 생성 + 지식 베이스 시드(기본 semantic 구성 포함) ──
         print("[1단계] Foundry IQ 인덱스 생성/시드...")
-        seed_iq_index(
+        await asyncio.to_thread(
+            seed_iq_index,
             search_endpoint=cfg["search_endpoint"],
             index_name=cfg["index_name"],
             aoai_endpoint=cfg["aoai_endpoint"],
@@ -111,6 +116,7 @@ async def main():
         sys.exit(1)
     finally:
         await aio_credential.close()
+        credential.close()
 
     print("\n=== 실행 완료 ===")
 

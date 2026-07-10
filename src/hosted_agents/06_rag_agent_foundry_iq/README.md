@@ -8,11 +8,15 @@ retrieval)를 Foundry **Hosted Agent**로 배포합니다. 기존
 에이전트가 질문을 받을 때마다 지식 베이스에 **멀티홉 검색**을 수행하고 그 결과를
 근거로 답변합니다.
 
+> **호환성 고정**: MAF `1.8.1` + hosting `1.0.0a260528` + Responses `1.0.0` +
+> azd `azure.ai.agents` 확장 `0.1.37-preview` 조합입니다. 최신 확장/hosting으로
+> 개별 업그레이드하면 Responses 2.0·MAF core 1.10 이상 요구사항과 충돌할 수 있습니다.
+
 ## 전제 — 지식 베이스 사전 생성
 
 이 호스팅 예제는 **이미 생성된 지식 베이스에 연결만** 합니다(검색=데이터 리더 권한).
 저장소 루트에서 `src/06_rag_agent_foundry_iq.py`를 한 번 실행하면 인덱스 시드 +
-지식 베이스(기본 `maf-lab-knowledge-iq-v1-kb`)가 자동 생성됩니다.
+지식 베이스(기본 `maf-lab-knowledge-iq-v2-kb`)가 자동 생성됩니다.
 
 ```bash
 python src/06_rag_agent_foundry_iq.py   # IQ 인덱스 시드 + 지식 베이스 생성
@@ -25,21 +29,29 @@ python src/06_rag_agent_foundry_iq.py   # IQ 인덱스 시드 + 지식 베이스
 ## 핵심 코드 (`main.py`)
 
 ```python
-provider = AzureAISearchContextProvider(
-    endpoint=SEARCH_ENDPOINT,
-    knowledge_base_name="maf-lab-knowledge-iq-v1-kb",  # 기존 지식 베이스에 연결
-    mode="agentic",
-    credential=AioDefaultAzureCredential(),            # 비동기 자격 증명 필수
-)
-agent = Agent(client=FoundryChatClient(...), instructions="...근거 기반 답변...",
-              context_providers=[provider], default_options={"store": False})
-server = ResponsesHostServer(agent)
-server.run()
+async def main() -> None:
+    credential = DefaultAzureCredential()
+    aio_credential = AioDefaultAzureCredential()
+    try:
+        async with AzureAISearchContextProvider(
+            endpoint=SEARCH_ENDPOINT,
+            knowledge_base_name="maf-lab-knowledge-iq-v2-kb",  # 기존 지식 베이스에 연결
+            mode="agentic",
+            credential=aio_credential,                          # 비동기 자격 증명 필수
+        ) as provider:
+            agent = Agent(client=FoundryChatClient(...), instructions="...근거 기반 답변...",
+                          context_providers=[provider], default_options={"store": False})
+            server = ResponsesHostServer(agent)
+            await server.run_async()
+    finally:
+        await aio_credential.close()
+        credential.close()
 ```
 
 > ⚠️ `AzureAISearchContextProvider`는 내부적으로 **비동기** Search 클라이언트를 쓰므로
-> 반드시 `azure.identity.aio` 자격 증명을 전달해야 합니다. 프로바이더의 클라이언트는
-> 호스팅 프로세스 수명 동안 유지됩니다(상시 서버이므로 명시적 close 불필요).
+> 반드시 `azure.identity.aio` 자격 증명을 전달해야 합니다. `async with`와
+> `run_async()`를 함께 사용하면 서버가 종료될 때 프로바이더의 Search 클라이언트와
+> 동기·비동기 자격 증명을 모두 정리할 수 있습니다.
 
 ## 환경 변수
 
@@ -48,7 +60,7 @@ server.run()
 | `FOUNDRY_PROJECT_ENDPOINT` | Hosted Agent 표준. 런타임이 자동 주입 |
 | `AZURE_AI_MODEL_DEPLOYMENT_NAME` | 모델 배포 이름. 런타임이 자동 주입 |
 | `SEARCH_SERVICE_ENDPOINT` | Azure AI Search 엔드포인트 |
-| `SEARCH_KNOWLEDGE_BASE_NAME` | 연결할 지식 베이스 이름(기본 `maf-lab-knowledge-iq-v1-kb`) |
+| `SEARCH_KNOWLEDGE_BASE_NAME` | 연결할 지식 베이스 이름(기본 `maf-lab-knowledge-iq-v2-kb`) |
 | `FOUNDRY_IQ_REASONING_EFFORT` | 질의 계획 추론 강도(minimal/low/medium, 기본 minimal) |
 | `PROJECT_ENDPOINT` / `MODEL_DEPLOYMENT_NAME` | 저장소 로컬 호환용 폴백 (선택) |
 
@@ -70,7 +82,8 @@ server.run()
 ## 로컬 실행 & 배포
 
 ```bash
-azd ext install azure.ai.agents && azd auth login
+azd extension install azure.ai.agents --version 0.1.37-preview --force
+azd auth login
 mkdir -p ~/deploy/rag-iq-agent && cd ~/deploy/rag-iq-agent
 REPO="/path/to/agent-framework-labs"
 azd ai agent init --no-prompt \
@@ -85,7 +98,8 @@ azd ai agent init --no-prompt \
 export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
 export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4"
 export SEARCH_SERVICE_ENDPOINT="https://<your-search>.search.windows.net"
-export SEARCH_KNOWLEDGE_BASE_NAME="maf-lab-knowledge-iq-v1-kb"
+export SEARCH_KNOWLEDGE_BASE_NAME="maf-lab-knowledge-iq-v2-kb"
+export FOUNDRY_IQ_REASONING_EFFORT="minimal"
 
 # 배포 시 기존 모델 배포를 그대로 사용하려면 init이 만든 azure.yaml의
 # deployments 블록을 제거하고 azd 환경값을 고정합니다.
@@ -93,6 +107,7 @@ azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME "$AZURE_AI_MODEL_DEPLOYMENT_NAME"
 azd env set AI_AGENT_PENDING_PROVISION ""
 azd env set SEARCH_SERVICE_ENDPOINT "$SEARCH_SERVICE_ENDPOINT"
 azd env set SEARCH_KNOWLEDGE_BASE_NAME "$SEARCH_KNOWLEDGE_BASE_NAME"
+azd env set FOUNDRY_IQ_REASONING_EFFORT "$FOUNDRY_IQ_REASONING_EFFORT"
 
 azd ai agent run                                   # 터미널 1: 로컬 호스트(:8088, 블로킹)
 azd ai agent invoke --local "Pro 요금제는 얼마이고 기술 지원은 얼마나 빨리 받나요?"  # 터미널 2

@@ -12,7 +12,7 @@ retrieval)에 검색을 위임하는 변형 예제들이 공유하는 헬퍼를 
     컨텍스트에 주입(``before_run`` 훅)합니다.
 
 지식 베이스(Foundry IQ)·인덱스는 기존 하이브리드 예제와 충돌하지 않도록 **별도
-인덱스 이름**(기본 ``maf-lab-knowledge-iq-v1``)을 사용합니다.
+인덱스 이름**(기본 ``maf-lab-knowledge-iq-v2``)을 사용합니다.
 
 .. note::
     지식 베이스의 ``model``에는 **임베딩이 아니라 채팅 모델 배포 이름**(예:
@@ -21,10 +21,16 @@ retrieval)에 검색을 위임하는 변형 예제들이 공유하는 헬퍼를 
     배포(``EMBEDDING_DEPLOYMENT_NAME``)로 시드 단계에서 수행합니다.
 """
 
+import math
 import os
 import time
+from collections.abc import Callable
+from typing import Literal, TypedDict, cast
 
+from agent_framework.azure import AzureAISearchContextProvider
 from azure.core.credentials import TokenCredential
+from azure.core.credentials_async import AsyncTokenCredential
+from azure.core.exceptions import ResourceNotFoundError
 from azure.identity import get_bearer_token_provider
 from azure.search.documents import SearchClient
 from azure.search.documents.indexes import SearchIndexClient
@@ -48,11 +54,56 @@ from openai import AzureOpenAI
 
 # agentic retrieval에 필요한 기본 semantic 구성 이름
 SEMANTIC_CONFIG_NAME = "maf-lab-semantic"
+ReasoningEffort = Literal["minimal", "low", "medium"]
+Embedder = Callable[[list[str]], list[list[float]]]
+
+
+class IQConfig(TypedDict):
+    """Foundry IQ 예제 환경 변수 형식."""
+
+    project_endpoint: str | None
+    model: str
+    search_endpoint: str | None
+    index_name: str
+    aoai_endpoint: str | None
+    aoai_resource_url: str | None
+    embedding_deployment: str
+    aoai_api_version: str
+    reasoning_effort: ReasoningEffort
+
+
+class IndexedDocument(TypedDict):
+    """인덱스에 업로드하는 문서 형식."""
+
+    id: str
+    title: str
+    content: str
+    content_vector: list[float]
+
+
+def _vectors_match(actual: object, expected: list[float]) -> bool:
+    """Search의 단정밀도 벡터가 업로드 값과 같은지 허용 오차로 비교합니다.
+
+    Args:
+        actual: Search에서 조회한 벡터 값.
+        expected: 업로드한 임베딩 벡터.
+
+    Returns:
+        차원과 각 원소가 단정밀도 저장 오차 안에서 같으면 True.
+    """
+    if not isinstance(actual, list) or len(actual) != len(expected):
+        return False
+    if not all(isinstance(value, (int, float)) for value in actual):
+        return False
+    return all(
+        math.isclose(float(current), target, rel_tol=1e-6, abs_tol=1e-7)
+        for current, target in zip(actual, expected, strict=True)
+    )
 
 
 # ── 지식 베이스 ──
 # 실제로는 사내 위키, 제품 매뉴얼, FAQ 등을 청크로 나눠 저장합니다.
-KNOWLEDGE_BASE = [
+KNOWLEDGE_BASE: list[dict[str, str]] = [
     {
         "id": "doc-1",
         "title": "환불 정책",
@@ -93,7 +144,12 @@ KNOWLEDGE_BASE = [
 ]
 
 
-def make_embedder(endpoint: str, deployment: str, api_version: str, credential: TokenCredential):
+def make_embedder(
+    endpoint: str,
+    deployment: str,
+    api_version: str,
+    credential: TokenCredential,
+) -> Embedder:
     """Azure OpenAI 임베딩 호출 함수를 생성합니다 (키리스 AAD 인증).
 
     Args:
@@ -122,6 +178,107 @@ def make_embedder(endpoint: str, deployment: str, api_version: str, credential: 
     return embed
 
 
+def _validate_index(index: SearchIndex, index_name: str, dim: int) -> None:
+    """기존 인덱스가 Foundry IQ 예제 스키마와 호환되는지 확인합니다.
+
+    Args:
+        index: Azure AI Search에서 읽은 기존 인덱스.
+        index_name: 검증할 인덱스 이름.
+        dim: 현재 임베딩 모델의 벡터 차원.
+
+    Raises:
+        RuntimeError: 벡터 또는 semantic 구성이 호환되지 않을 때.
+    """
+    fields = {field.name: field for field in index.fields}
+    required_fields = {"id", "title", "content", "content_vector"}
+    errors = []
+
+    missing = sorted(required_fields - fields.keys())
+    if missing:
+        errors.append(f"필수 필드 누락: {', '.join(missing)}")
+    else:
+        id_field = fields["id"]
+        if (
+            id_field.type != SearchFieldDataType.String
+            or id_field.key is not True
+            or id_field.hidden is not False
+        ):
+            errors.append("id 필드가 조회 가능한 문자열 키가 아님")
+
+        for field_name in ("title", "content"):
+            text_field = fields[field_name]
+            if (
+                text_field.type != SearchFieldDataType.String
+                or text_field.searchable is not True
+                or text_field.analyzer_name != "ko.microsoft"
+                or text_field.hidden is not False
+            ):
+                errors.append(
+                    f"{field_name} 필드가 조회 가능한 ko.microsoft 검색 문자열 구성이 아님"
+                )
+
+        vector_field = fields["content_vector"]
+        expected_vector_type = SearchFieldDataType.Collection(SearchFieldDataType.Single)
+        if vector_field.type != expected_vector_type or vector_field.searchable is not True:
+            errors.append("content_vector가 검색 가능한 단정밀도 벡터 필드가 아님")
+        if vector_field.vector_search_dimensions != dim:
+            errors.append(
+                "content_vector 차원 불일치 "
+                f"(인덱스={vector_field.vector_search_dimensions}, 모델={dim})"
+            )
+        if vector_field.vector_search_profile_name != "vprofile":
+            errors.append("content_vector의 벡터 프로필이 vprofile이 아님")
+        if vector_field.hidden is not False or vector_field.stored is False:
+            errors.append("content_vector가 인덱싱 반영 검증을 위해 조회 가능하게 저장되지 않음")
+
+        vector_search = index.vector_search
+        profiles = {
+            profile.name: profile for profile in (vector_search.profiles or [])
+        } if vector_search else {}
+        algorithms = {
+            algorithm.name: algorithm for algorithm in (vector_search.algorithms or [])
+        } if vector_search else {}
+        profile = profiles.get("vprofile")
+        algorithm = (
+            algorithms.get(profile.algorithm_configuration_name)
+            if profile and profile.algorithm_configuration_name
+            else None
+        )
+        metric = getattr(getattr(algorithm, "parameters", None), "metric", None)
+        if algorithm is None or metric != VectorSearchAlgorithmMetric.COSINE:
+            errors.append("vprofile이 코사인 벡터 검색 알고리즘을 참조하지 않음")
+
+    semantic_search = index.semantic_search
+    configurations = (semantic_search.configurations or []) if semantic_search else []
+    semantic_configuration = next(
+        (config for config in configurations if config.name == SEMANTIC_CONFIG_NAME),
+        None,
+    )
+    if (
+        semantic_search is None
+        or semantic_search.default_configuration_name != SEMANTIC_CONFIG_NAME
+        or semantic_configuration is None
+    ):
+        errors.append(f"기본 semantic 구성 '{SEMANTIC_CONFIG_NAME}' 누락")
+    else:
+        prioritized_fields = semantic_configuration.prioritized_fields
+        title_field = prioritized_fields.title_field if prioritized_fields else None
+        content_fields = prioritized_fields.content_fields if prioritized_fields else []
+        if (
+            title_field is None
+            or title_field.field_name != "title"
+            or "content" not in {field.field_name for field in content_fields or []}
+        ):
+            errors.append(f"semantic 구성 '{SEMANTIC_CONFIG_NAME}'의 우선 필드가 올바르지 않음")
+
+    if errors:
+        details = "; ".join(errors)
+        raise RuntimeError(
+            f"기존 인덱스 '{index_name}'가 Foundry IQ 예제와 호환되지 않습니다: {details}. "
+            "SEARCH_INDEX_NAME_IQ를 새 이름으로 바꾸거나 기존 인덱스를 정리한 뒤 다시 실행하세요."
+        )
+
+
 def ensure_index_semantic(index_client: SearchIndexClient, index_name: str, dim: int) -> None:
     """agentic retrieval용 인덱스를 생성합니다 — 벡터 + **기본 semantic 구성**(멱등).
 
@@ -134,8 +291,13 @@ def ensure_index_semantic(index_client: SearchIndexClient, index_name: str, dim:
         index_name: 생성/확인할 인덱스 이름.
         dim: 벡터 필드 차원 (임베딩 모델 출력 차원).
     """
-    existing = list(index_client.list_index_names())
-    if index_name in existing:
+    try:
+        existing_index = index_client.get_index(index_name)
+    except ResourceNotFoundError:
+        existing_index = None
+
+    if existing_index is not None:
+        _validate_index(existing_index, index_name, dim)
         print(f"  → 기존 인덱스 사용: {index_name}")
         return
 
@@ -148,6 +310,8 @@ def ensure_index_semantic(index_client: SearchIndexClient, index_name: str, dim:
             name="content_vector",
             type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
             searchable=True,
+            hidden=False,
+            stored=True,
             vector_search_dimensions=dim,
             vector_search_profile_name="vprofile",
         ),
@@ -188,7 +352,37 @@ def ensure_index_semantic(index_client: SearchIndexClient, index_name: str, dim:
     print(f"  → 인덱스 생성 완료: {index_name} (벡터 차원 {dim}, 코사인, semantic 구성 포함)")
 
 
-def seed_documents(search_client: SearchClient, embed) -> None:
+def _documents_are_indexed(
+    search_client: SearchClient,
+    expected_documents: list[IndexedDocument],
+) -> bool:
+    """업로드한 문서가 최신 내용으로 조회되는지 확인합니다.
+
+    Args:
+        search_client: 대상 인덱스의 SearchClient.
+        expected_documents: 업로드한 최신 문서와 임베딩 벡터.
+
+    Returns:
+        모든 문서의 제목·본문·임베딩 벡터가 최신 값이면 True.
+    """
+    for expected in expected_documents:
+        try:
+            actual = search_client.get_document(
+                key=expected["id"],
+                selected_fields=["title", "content", "content_vector"],
+            )
+        except ResourceNotFoundError:
+            return False
+        if (
+            actual.get("title") != expected["title"]
+            or actual.get("content") != expected["content"]
+            or not _vectors_match(actual.get("content_vector"), expected["content_vector"])
+        ):
+            return False
+    return True
+
+
+def seed_documents(search_client: SearchClient, embed: Embedder) -> None:
     """지식 베이스 문서를 임베딩하여 인덱스에 업로드합니다 (멱등 upsert).
 
     Args:
@@ -196,14 +390,18 @@ def seed_documents(search_client: SearchClient, embed) -> None:
         embed: 텍스트 리스트를 임베딩 벡터로 변환하는 함수.
     """
     vectors = embed([doc["content"] for doc in KNOWLEDGE_BASE])
-    documents = [
+    if len(vectors) != len(KNOWLEDGE_BASE):
+        raise RuntimeError(
+            f"임베딩 결과 수가 문서 수와 다릅니다: {len(vectors)} != {len(KNOWLEDGE_BASE)}"
+        )
+    documents: list[IndexedDocument] = [
         {
             "id": doc["id"],
             "title": doc["title"],
             "content": doc["content"],
             "content_vector": vector,
         }
-        for doc, vector in zip(KNOWLEDGE_BASE, vectors)
+        for doc, vector in zip(KNOWLEDGE_BASE, vectors, strict=True)
     ]
 
     results = search_client.merge_or_upload_documents(documents=documents)
@@ -211,13 +409,13 @@ def seed_documents(search_client: SearchClient, embed) -> None:
     if failed:
         raise RuntimeError(f"문서 업로드 실패: {[r.key for r in failed]}")
 
-    # 인덱싱 반영 대기 (최대 30초)
-    target = len(KNOWLEDGE_BASE)
+    # 문서 수뿐 아니라 최신 제목·본문·벡터가 조회되는지 최대 30초 동안 확인합니다.
     for _ in range(30):
-        if search_client.get_document_count() >= target:
-            break
+        if _documents_are_indexed(search_client, documents):
+            print(f"  → 문서 {len(KNOWLEDGE_BASE)}건 임베딩·업로드 완료")
+            return
         time.sleep(1)
-    print(f"  → 문서 {target}건 임베딩·업로드 완료")
+    raise TimeoutError("문서 업로드 후 30초 안에 최신 인덱싱 결과를 확인하지 못했습니다.")
 
 
 def seed_iq_index(
@@ -242,13 +440,20 @@ def seed_iq_index(
         임베딩 벡터 차원(인덱스 생성에 사용한 값).
     """
     embed = make_embedder(aoai_endpoint, embedding_deployment, aoai_api_version, credential)
-    dim = len(embed(["차원 확인"])[0])
+    dimension_probe = embed(["차원 확인"])
+    if not dimension_probe or not dimension_probe[0]:
+        raise RuntimeError("임베딩 모델이 빈 벡터를 반환했습니다.")
+    dim = len(dimension_probe[0])
     print(f"  → 임베딩 차원: {dim}")
 
     index_client = SearchIndexClient(endpoint=search_endpoint, credential=credential)
     ensure_index_semantic(index_client, index_name, dim)
 
-    search_client = SearchClient(endpoint=search_endpoint, index_name=index_name, credential=credential)
+    search_client = SearchClient(
+        endpoint=search_endpoint,
+        index_name=index_name,
+        credential=credential,
+    )
     seed_documents(search_client, embed)
     return dim
 
@@ -259,9 +464,9 @@ def build_agentic_provider(
     index_name: str,
     azure_openai_resource_url: str,
     query_planning_model: str,
-    credential,
-    retrieval_reasoning_effort: str = "minimal",
-):
+    credential: AsyncTokenCredential,
+    retrieval_reasoning_effort: ReasoningEffort = "minimal",
+) -> AzureAISearchContextProvider:
     """인덱스 기반 Foundry IQ agentic 컨텍스트 프로바이더를 생성합니다.
 
     인덱스로부터 지식 소스·지식 베이스를 자동 생성(create-or-update, 멱등)하고,
@@ -282,8 +487,6 @@ def build_agentic_provider(
     Returns:
         ``AzureAISearchContextProvider`` 인스턴스(에이전트의 ``context_providers``에 전달).
     """
-    from agent_framework.azure import AzureAISearchContextProvider
-
     return AzureAISearchContextProvider(
         endpoint=search_endpoint,
         index_name=index_name,
@@ -295,21 +498,31 @@ def build_agentic_provider(
     )
 
 
-def resolve_iq_env() -> dict:
+def resolve_iq_env() -> IQConfig:
     """Foundry IQ 예제 공통 환경 변수를 읽어 반환합니다.
 
     Returns:
         설정 값 딕셔너리. 누락 시 값이 ``None``일 수 있으므로 호출 측에서 검증하세요.
+
+    Raises:
+        ValueError: 질의 계획 추론 강도 값이 허용 범위를 벗어날 때.
     """
+    reasoning_effort = os.getenv("FOUNDRY_IQ_REASONING_EFFORT", "minimal")
+    if reasoning_effort not in {"minimal", "low", "medium"}:
+        raise ValueError(
+            "FOUNDRY_IQ_REASONING_EFFORT는 minimal, low, medium 중 하나여야 합니다."
+        )
+
     return {
         "project_endpoint": os.getenv("PROJECT_ENDPOINT"),
         "model": os.getenv("MODEL_DEPLOYMENT_NAME") or "gpt-5.4",
         "search_endpoint": os.getenv("SEARCH_SERVICE_ENDPOINT"),
-        "index_name": os.getenv("SEARCH_INDEX_NAME_IQ", "maf-lab-knowledge-iq-v1"),
+        "index_name": os.getenv("SEARCH_INDEX_NAME_IQ", "maf-lab-knowledge-iq-v2"),
         "aoai_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
         # 일부 환경에서 agentic 벡터화는 .openai.azure.com 형식을 요구할 수 있어 분리 가능
-        "aoai_resource_url": os.getenv("AZURE_OPENAI_RESOURCE_URL") or os.getenv("AZURE_OPENAI_ENDPOINT"),
+        "aoai_resource_url": os.getenv("AZURE_OPENAI_RESOURCE_URL")
+        or os.getenv("AZURE_OPENAI_ENDPOINT"),
         "embedding_deployment": os.getenv("EMBEDDING_DEPLOYMENT_NAME") or "text-embedding-3-large",
         "aoai_api_version": os.getenv("AZURE_OPENAI_API_VERSION", "2024-10-21"),
-        "reasoning_effort": os.getenv("FOUNDRY_IQ_REASONING_EFFORT", "minimal"),
+        "reasoning_effort": cast(ReasoningEffort, reasoning_effort),
     }

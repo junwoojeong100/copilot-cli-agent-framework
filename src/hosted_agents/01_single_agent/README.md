@@ -3,6 +3,10 @@
 이 저장소 `src/01_single_agent.py`의 **기술 어시스턴트** 에이전트를 그대로 가져와,
 Microsoft Foundry **Hosted Agent**(관리형 컨테이너)로 배포합니다.
 
+> **호환성 고정**: MAF `1.8.1` + hosting `1.0.0a260528` + Responses `1.0.0` +
+> azd `azure.ai.agents` 확장 `0.1.37-preview` 조합입니다. 최신 확장/hosting으로
+> 개별 업그레이드하면 Responses 2.0·MAF core 1.10 이상 요구사항과 충돌할 수 있습니다.
+
 ## 핵심 코드 (`main.py`)
 
 ```python
@@ -11,11 +15,15 @@ from agent_framework.foundry import FoundryChatClient
 from agent_framework_foundry_hosting import ResponsesHostServer
 from azure.identity import DefaultAzureCredential
 
-client = FoundryChatClient(project_endpoint=..., model=..., credential=DefaultAzureCredential())
+credential = DefaultAzureCredential()
+client = FoundryChatClient(project_endpoint=..., model=..., credential=credential)
 agent = Agent(client=client, instructions="...", default_options={"store": False})
 
 server = ResponsesHostServer(agent)   # /responses 엔드포인트 노출
-server.run()                          # 동기 호출 (asyncio.run으로 감싸지 않음)
+try:
+    server.run()                      # 동기 호출 (asyncio.run으로 감싸지 않음)
+finally:
+    credential.close()
 ```
 
 ## 기존 예제 vs Hosted Agent
@@ -55,7 +63,7 @@ server.run()                          # 동기 호출 (asyncio.run으로 감싸�
 
 ```bash
 # Azure Developer CLI + AI agent 확장
-azd ext install azure.ai.agents
+azd extension install azure.ai.agents --version 0.1.37-preview --force
 azd auth login
 ```
 

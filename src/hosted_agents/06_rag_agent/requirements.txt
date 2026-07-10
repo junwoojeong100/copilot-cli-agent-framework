@@ -1,20 +1,17 @@
 # Foundry Hosted Agent 런타임 의존성
-# (이 폴더는 코드(ZIP)로 원격 빌드되므로 자체 완결적으로 의존성을 명시합니다.)
-# 주의: 메타패키지 `agent-framework`는 linux/x86_64 전용 `agent-framework-hyperlight`를
-# 끌어와 원격 빌드에서 의존성 충돌을 일으키므로, 필요한 하위 패키지만 명시합니다.
+# MAF 1.8.x + Responses 프로토콜 1.0 조합으로 검증된 버전을 고정합니다.
+agent-framework-core==1.8.1
+agent-framework-openai==1.8.1
+agent-framework-foundry==1.8.1
+agent-framework-foundry-hosting==1.0.0a260528
 
-# Agent / orchestrations
-agent-framework-core>=1.8.0
-# FoundryChatClient
-agent-framework-foundry>=1.8.0
-# Foundry Hosted Agent 호스팅(ResponsesHostServer 제공, 프리뷰)
-agent-framework-foundry-hosting>=1.0.0a260528
-# 호스팅 패키지가 내부적으로 import하지만 의존성으로 선언하지 않은 패키지(McpError)
-mcp>=1.24.0,<2
+# 호스팅 패키지가 런타임에 사용하는 MCP 예외 타입
+mcp==1.27.2
 
-# 로컬 .env 로딩용
-python-dotenv>=1.2.2
+# 인증 / 로컬 .env 로딩
+azure-identity==1.25.3
+python-dotenv==1.2.2
 
 # RAG — Azure AI Search 하이브리드 검색 + Azure OpenAI 임베딩
 azure-search-documents==11.7.0b2
-openai>=2.38.0
+openai==2.38.0

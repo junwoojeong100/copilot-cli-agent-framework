@@ -21,7 +21,7 @@ from azure.identity import AzureCliCredential
 from _streaming import stream_workflow
 
 
-async def main():
+async def main() -> None:
     """GroupChat 워크플로우를 구성하고 실행하는 메인 함수"""
 
     print("=== GroupChat 워크플로우 실행 ===\n")
@@ -38,13 +38,14 @@ async def main():
     print(f"주제: {topic}\n")
     print("=" * 50)
 
+    credential = AzureCliCredential()
     try:
         # ── 2단계: Foundry 클라이언트 및 역할별 에이전트 생성 ──
         # 각 에이전트는 프로젝트에서 고유한 역할과 관점을 가집니다
         client = FoundryChatClient(
             project_endpoint=project_endpoint,
             model=model,
-            credential=AzureCliCredential(),
+            credential=credential,
         )
 
         # 기획자 에이전트 - 비즈니스 관점에서 기능을 정의합니다
@@ -118,6 +119,8 @@ async def main():
     except Exception as e:
         print(f"GroupChat 실행 중 오류 발생: {e}")
         sys.exit(1)
+    finally:
+        credential.close()
 
     print("\n=== 실행 완료 ===")
 
