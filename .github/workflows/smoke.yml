@@ -1,15 +1,17 @@
 name: smoke
 
-# 예제 스크립트의 구문 오류를 빠르게 잡는 경량 스모크 테스트입니다.
-# Azure 자격증명이 없어도 동작하도록 실제 실행 대신 바이트컴파일만 수행합니다.
+# Azure 호출 없이 의존성 정합성·구문·모듈 임포트를 확인하는 스모크 테스트입니다.
 on:
   push:
     branches: ["**"]
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
-  compile:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,6 +20,42 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.14.5"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            src/hosted_agents/*/requirements.txt
+
+      - name: Install all runtime dependency sets
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            -r requirements.txt \
+            -r src/hosted_agents/01_single_agent/requirements.txt \
+            -r src/hosted_agents/02_sequential_workflow/requirements.txt \
+            -r src/hosted_agents/03_group_chat/requirements.txt \
+            -r src/hosted_agents/04_concurrent_workflow/requirements.txt \
+            -r src/hosted_agents/05_mcp_agent/requirements.txt \
+            -r src/hosted_agents/06_rag_agent/requirements.txt \
+            -r src/hosted_agents/06_rag_agent_foundry_iq/requirements.txt
+          python -m pip check
 
       - name: Byte-compile all example scripts
         run: python -m compileall -q src
+
+      - name: Import all example modules
+        env:
+          PYTHONPATH: src
+        run: |
+          python - <<'PY'
+          from importlib.util import module_from_spec, spec_from_file_location
+          from pathlib import Path
+
+          for index, path in enumerate(sorted(Path("src").rglob("*.py"))):
+              spec = spec_from_file_location(f"smoke_{index}", path)
+              if spec is None or spec.loader is None:
+                  raise RuntimeError(f"모듈 로더를 만들 수 없습니다: {path}")
+              module = module_from_spec(spec)
+              spec.loader.exec_module(module)
+
+          print("모든 Python 모듈 임포트 성공")
+          PY

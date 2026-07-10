@@ -5,6 +5,12 @@ __pycache__/
 
 # 환경 변수 (시크릿 — 절대 커밋 금지)
 .env
+.env.*
+.envrc
+!.env.example
+
+# Azure Developer CLI 로컬 환경 상태 (구독·리소스 식별자 포함 가능)
+.azure/
 
 # OS
 .DS_Store

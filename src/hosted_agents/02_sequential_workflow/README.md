@@ -7,6 +7,10 @@
 > 핵심: MAF 워크플로우는 Foundry Agent SDK v2로 재작성하지 않고도
 > `.as_agent()` 한 줄로 Hosted Agent가 됩니다.
 
+> **호환성 고정**: MAF `1.8.1` + hosting `1.0.0a260528` + Responses `1.0.0` +
+> azd `azure.ai.agents` 확장 `0.1.37-preview` 조합입니다. 최신 확장/hosting으로
+> 개별 업그레이드하면 Responses 2.0·MAF core 1.10 이상 요구사항과 충돌할 수 있습니다.
+
 ## 핵심 코드 (`main.py`)
 
 ```python
@@ -51,7 +55,7 @@ server.run()             # 동기 호출
 ## 로컬 실행
 
 ```bash
-azd ext install azure.ai.agents
+azd extension install azure.ai.agents --version 0.1.37-preview --force
 azd auth login
 
 # 매니페스트로 azd 프로젝트 초기화 (빈 폴더에서 실행)

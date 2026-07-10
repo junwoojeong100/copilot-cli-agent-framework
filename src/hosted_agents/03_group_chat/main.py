@@ -42,7 +42,7 @@ def select_next_speaker(state: GroupChatState) -> str:
     return speakers[state.current_round % len(speakers)]
 
 
-def main():
+def main() -> None:
     """GroupChat 워크플로우를 만들어 Responses 프로토콜로 호스팅하는 메인 함수"""
 
     if not PROJECT_ENDPOINT:
@@ -51,10 +51,11 @@ def main():
         )
 
     # ── 1단계: Foundry Chat 클라이언트 설정 ──
+    credential = DefaultAzureCredential()
     client = FoundryChatClient(
         project_endpoint=PROJECT_ENDPOINT,
         model=MODEL,
-        credential=DefaultAzureCredential(),
+        credential=credential,
     )
 
     # ── 2단계: 역할별 에이전트 생성 ──
@@ -110,7 +111,10 @@ def main():
 
     # ── 4단계: Responses 프로토콜 서버로 호스팅 ──
     server = ResponsesHostServer(workflow_agent)
-    server.run()
+    try:
+        server.run()
+    finally:
+        credential.close()
 
 
 if __name__ == "__main__":

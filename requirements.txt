@@ -1,20 +1,21 @@
-# 인증 (키리스 AAD)
+# Microsoft Agent Framework 1.8.x 호환 매트릭스
+# 메타패키지 agent-framework는 사용하지 않습니다. 사용하지 않는 공급자까지 설치해
+# pip 의존성 해석이 실패할 수 있으므로 예제에 필요한 하위 패키지만 고정합니다.
+agent-framework-core==1.8.1
+agent-framework-openai==1.8.1
+agent-framework-foundry==1.8.1
+agent-framework-orchestrations==1.0.0rc3
+agent-framework-azure-ai-search==1.0.0b260521
+
+# 인증 (키리스 Entra ID)
 azure-identity==1.25.3
 
-# OpenAI
+# Azure OpenAI 임베딩 / Azure AI Search
 openai==2.38.0
-
-# MCP (Model Context Protocol)
-mcp[cli]==1.27.2
-
-# Azure AI Search (Foundry IQ 지식 베이스 연동용)
 azure-search-documents==11.7.0b2
 
-# Microsoft Agent Framework
-agent-framework==1.8.0
-
-# Foundry IQ agentic 검색 컨텍스트 프로바이더 (예제 06 변형)
-agent-framework-azure-ai-search>=1.0.0b260521
+# 모델 컨텍스트 프로토콜(MCP)
+mcp==1.27.2
 
 # 유틸리티
 python-dotenv==1.2.2

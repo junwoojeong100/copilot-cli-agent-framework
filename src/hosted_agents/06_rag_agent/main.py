@@ -10,14 +10,16 @@
 
 전제: 검색 인덱스가 이미 시드되어 있어야 합니다.
       저장소의 ``src/06_rag_agent.py`` 를 한 번 실행하면 동일한 인덱스
-      (기본값 ``maf-lab-knowledge-v1``)가 생성·시드됩니다.
+      (기본값 ``maf-lab-knowledge-v2``)가 생성·시드됩니다.
 """
 
 import os
+from collections.abc import Callable
 from typing import Annotated
 
 from agent_framework import Agent
 from agent_framework.foundry import FoundryChatClient
+from azure.core.credentials import TokenCredential
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from azure.search.documents import SearchClient
 from azure.search.documents.models import VectorizedQuery
@@ -38,13 +40,18 @@ MODEL = (
     or "gpt-5.4"
 )
 SEARCH_ENDPOINT = os.getenv("SEARCH_SERVICE_ENDPOINT")
-INDEX_NAME = os.getenv("SEARCH_INDEX_NAME", "maf-lab-knowledge-v1")
+INDEX_NAME = os.getenv("SEARCH_INDEX_NAME", "maf-lab-knowledge-v2")
 AOAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
 EMBEDDING_DEPLOYMENT = os.getenv("EMBEDDING_DEPLOYMENT_NAME", "text-embedding-3-large")
 AOAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-10-21")
 
 
-def make_embedder(endpoint: str, deployment: str, api_version: str, credential):
+def make_embedder(
+    endpoint: str,
+    deployment: str,
+    api_version: str,
+    credential: TokenCredential,
+) -> Callable[[list[str]], list[list[float]]]:
     """Azure OpenAI 임베딩 호출 함수를 생성합니다 (키리스 AAD 인증).
 
     Args:
@@ -66,13 +73,14 @@ def make_embedder(endpoint: str, deployment: str, api_version: str, credential):
     )
 
     def embed(texts: list[str]) -> list[list[float]]:
+        """텍스트 리스트를 임베딩 벡터 리스트로 변환합니다."""
         response = client.embeddings.create(model=deployment, input=texts)
         return [item.embedding for item in response.data]
 
     return embed
 
 
-def main():
+def main() -> None:
     """RAG 검색 도구를 가진 에이전트를 Responses 프로토콜로 호스팅하는 메인 함수"""
 
     if not PROJECT_ENDPOINT:
@@ -105,7 +113,10 @@ def main():
         Returns:
             관련 문서들을 합친 컨텍스트 문자열(제목 + 본문). 없으면 안내 문구.
         """
-        query_vector = embed([query])[0]
+        query_vectors = embed([query])
+        if not query_vectors or not query_vectors[0]:
+            raise RuntimeError("질문 임베딩 모델이 빈 벡터를 반환했습니다.")
+        query_vector = query_vectors[0]
         vector_query = VectorizedQuery(
             vector=query_vector, k=5, fields="content_vector"
         )
@@ -140,7 +151,10 @@ def main():
 
     # ── 4단계: Responses 프로토콜 서버로 호스팅 ──
     server = ResponsesHostServer(agent)
-    server.run()
+    try:
+        server.run()
+    finally:
+        credential.close()
 
 
 if __name__ == "__main__":

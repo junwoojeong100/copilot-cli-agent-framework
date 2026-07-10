@@ -32,7 +32,7 @@ MODEL = (
 )
 
 
-def main():
+def main() -> None:
     """순차 워크플로우를 만들어 Responses 프로토콜로 호스팅하는 메인 함수"""
 
     if not PROJECT_ENDPOINT:
@@ -42,10 +42,11 @@ def main():
 
     # ── 1단계: Foundry Chat 클라이언트 설정 ──
     # 컨테이너에서는 전용 관리 ID, 로컬에서는 az login 세션으로 인증됩니다.
+    credential = DefaultAzureCredential()
     client = FoundryChatClient(
         project_endpoint=PROJECT_ENDPOINT,
         model=MODEL,
-        credential=DefaultAzureCredential(),
+        credential=credential,
     )
 
     # ── 2단계: 단계별 에이전트 생성 ──
@@ -95,7 +96,10 @@ def main():
     # ── 4단계: Responses 프로토콜 서버로 호스팅 ──
     # server.run()은 동기 호출입니다. /responses 엔드포인트가 8088 포트에서 열립니다.
     server = ResponsesHostServer(workflow_agent)
-    server.run()
+    try:
+        server.run()
+    finally:
+        credential.close()
 
 
 if __name__ == "__main__":
