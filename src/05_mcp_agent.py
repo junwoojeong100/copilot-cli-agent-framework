@@ -54,7 +54,7 @@ async def main() -> None:
         )
 
         # ── 2단계: MCP 도구 정의 ──
-        # MCPStreamableHTTPTool은 HTTP(SSE) 기반 MCP 서버에 연결합니다.
+        # MCPStreamableHTTPTool은 Streamable HTTP 기반 MCP 서버에 연결합니다.
         # Microsoft Learn MCP는 공개 서버라 별도 인증 헤더가 필요 없습니다.
         # 인증이 필요한 서버라면 header_provider 콜백(또는 커스텀 http_client)으로
         # Authorization 헤더를 설정합니다(MCPStreamableHTTPTool에는 headers= 인자가 없습니다).

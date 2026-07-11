@@ -5,14 +5,14 @@
 retrieval)에 검색을 위임하는 변형 예제들이 공유하는 헬퍼를 모았습니다.
 
 핵심 차이:
-  - 인덱스를 **기본 semantic 구성**과 함께 생성합니다(agentic retrieval 필수 요건).
+  - 인덱스를 **기본 semantic 구성 + 쿼리 벡터라이저**와 함께 생성합니다.
   - 검색 단계는 ``agent_framework.azure.AzureAISearchContextProvider``(agentic 모드)가
     담당합니다. 이 프로바이더는 인덱스로부터 지식 소스(``<index>-source``)와 지식
-    베이스(``<index>-kb``)를 자동 생성하고, 멀티홉 검색 결과를 에이전트 세션
-    컨텍스트에 주입(``before_run`` 훅)합니다.
+    베이스(``<index>-kb``)를 자동 생성하고, 질의 계획 기반 멀티쿼리 검색 결과를
+    에이전트 세션 컨텍스트에 주입(``before_run`` 훅)합니다.
 
 지식 베이스(Foundry IQ)·인덱스는 기존 하이브리드 예제와 충돌하지 않도록 **별도
-인덱스 이름**(기본 ``maf-lab-knowledge-iq-v2``)을 사용합니다.
+인덱스 이름**(기본 ``maf-lab-knowledge-iq-v3``)을 사용합니다.
 
 .. note::
     지식 베이스의 ``model``에는 **임베딩이 아니라 채팅 모델 배포 이름**(예:
@@ -35,6 +35,8 @@ from azure.identity import get_bearer_token_provider
 from azure.search.documents import SearchClient
 from azure.search.documents.indexes import SearchIndexClient
 from azure.search.documents.indexes.models import (
+    AzureOpenAIVectorizer,
+    AzureOpenAIVectorizerParameters,
     HnswAlgorithmConfiguration,
     HnswParameters,
     SearchableField,
@@ -54,6 +56,7 @@ from openai import AzureOpenAI
 
 # agentic retrieval에 필요한 기본 semantic 구성 이름
 SEMANTIC_CONFIG_NAME = "maf-lab-semantic"
+VECTORIZER_NAME = "maf-lab-aoai-vectorizer"
 ReasoningEffort = Literal["minimal", "low", "medium"]
 Embedder = Callable[[list[str]], list[list[float]]]
 
@@ -68,6 +71,7 @@ class IQConfig(TypedDict):
     aoai_endpoint: str | None
     aoai_resource_url: str | None
     embedding_deployment: str
+    embedding_model: str
     aoai_api_version: str
     reasoning_effort: ReasoningEffort
 
@@ -178,13 +182,28 @@ def make_embedder(
     return embed
 
 
-def _validate_index(index: SearchIndex, index_name: str, dim: int) -> None:
+def _normalize_resource_url(value: str | None) -> str:
+    """리소스 URL을 비교 가능한 형식으로 정규화합니다."""
+    return (value or "").rstrip("/").lower()
+
+
+def _validate_index(
+    index: SearchIndex,
+    index_name: str,
+    dim: int,
+    embedding_resource_url: str,
+    embedding_deployment: str,
+    embedding_model: str,
+) -> None:
     """기존 인덱스가 Foundry IQ 예제 스키마와 호환되는지 확인합니다.
 
     Args:
         index: Azure AI Search에서 읽은 기존 인덱스.
         index_name: 검증할 인덱스 이름.
         dim: 현재 임베딩 모델의 벡터 차원.
+        embedding_resource_url: 쿼리 벡터라이저가 사용할 Azure OpenAI 리소스 URL.
+        embedding_deployment: 쿼리 벡터라이저의 임베딩 배포 이름.
+        embedding_model: 쿼리 벡터라이저의 실제 임베딩 모델 이름.
 
     Raises:
         RuntimeError: 벡터 또는 semantic 구성이 호환되지 않을 때.
@@ -247,6 +266,28 @@ def _validate_index(index: SearchIndex, index_name: str, dim: int) -> None:
         metric = getattr(getattr(algorithm, "parameters", None), "metric", None)
         if algorithm is None or metric != VectorSearchAlgorithmMetric.COSINE:
             errors.append("vprofile이 코사인 벡터 검색 알고리즘을 참조하지 않음")
+        if profile is None or profile.vectorizer_name != VECTORIZER_NAME:
+            errors.append(f"vprofile이 쿼리 벡터라이저 '{VECTORIZER_NAME}'를 참조하지 않음")
+
+        vectorizers = {
+            vectorizer.vectorizer_name: vectorizer
+            for vectorizer in (vector_search.vectorizers or [])
+        } if vector_search else {}
+        vectorizer = vectorizers.get(VECTORIZER_NAME)
+        parameters = getattr(vectorizer, "parameters", None)
+        if vectorizer is None or parameters is None:
+            errors.append(f"Azure OpenAI 쿼리 벡터라이저 '{VECTORIZER_NAME}' 누락")
+        else:
+            if (
+                _normalize_resource_url(parameters.resource_url)
+                != _normalize_resource_url(embedding_resource_url)
+            ):
+                errors.append(f"벡터라이저 '{VECTORIZER_NAME}'의 Azure OpenAI 리소스 URL 불일치")
+            if parameters.deployment_name != embedding_deployment:
+                errors.append(f"벡터라이저 '{VECTORIZER_NAME}'의 임베딩 배포 이름 불일치")
+            actual_model_name = getattr(parameters.model_name, "value", parameters.model_name)
+            if actual_model_name != embedding_model:
+                errors.append(f"벡터라이저 '{VECTORIZER_NAME}'의 임베딩 모델 이름 불일치")
 
     semantic_search = index.semantic_search
     configurations = (semantic_search.configurations or []) if semantic_search else []
@@ -279,17 +320,27 @@ def _validate_index(index: SearchIndex, index_name: str, dim: int) -> None:
         )
 
 
-def ensure_index_semantic(index_client: SearchIndexClient, index_name: str, dim: int) -> None:
-    """agentic retrieval용 인덱스를 생성합니다 — 벡터 + **기본 semantic 구성**(멱등).
+def ensure_index_semantic(
+    index_client: SearchIndexClient,
+    index_name: str,
+    dim: int,
+    embedding_resource_url: str,
+    embedding_deployment: str,
+    embedding_model: str,
+) -> None:
+    """agentic retrieval용 인덱스를 생성합니다 — 벡터라이저 + semantic 구성(멱등).
 
     하이브리드 예제의 ``ensure_index``와 달리, Foundry IQ agentic retrieval이 요구하는
-    **기본 semantic 구성**을 함께 만듭니다. semantic 구성이 없으면 지식 소스 생성·검색이
-    실패합니다.
+    **기본 semantic 구성**과 쿼리 시점 Azure OpenAI 벡터라이저를 함께 만듭니다.
+    벡터라이저가 없으면 저장된 벡터 필드는 agentic 검색의 벡터 쿼리에 사용되지 않습니다.
 
     Args:
         index_client: Azure AI Search 인덱스 관리 클라이언트.
         index_name: 생성/확인할 인덱스 이름.
         dim: 벡터 필드 차원 (임베딩 모델 출력 차원).
+        embedding_resource_url: 쿼리 벡터라이저가 사용할 Azure OpenAI 리소스 URL.
+        embedding_deployment: 쿼리 벡터라이저의 임베딩 배포 이름.
+        embedding_model: 쿼리 벡터라이저의 실제 임베딩 모델 이름.
     """
     try:
         existing_index = index_client.get_index(index_name)
@@ -297,15 +348,30 @@ def ensure_index_semantic(index_client: SearchIndexClient, index_name: str, dim:
         existing_index = None
 
     if existing_index is not None:
-        _validate_index(existing_index, index_name, dim)
+        _validate_index(
+            existing_index,
+            index_name,
+            dim,
+            embedding_resource_url,
+            embedding_deployment,
+            embedding_model,
+        )
         print(f"  → 기존 인덱스 사용: {index_name}")
         return
 
     # 한국어 키워드 검색 품질을 위해 ko.microsoft 분석기를 사용합니다.
     fields = [
         SimpleField(name="id", type=SearchFieldDataType.String, key=True),
-        SearchableField(name="title", type=SearchFieldDataType.String, analyzer_name="ko.microsoft"),
-        SearchableField(name="content", type=SearchFieldDataType.String, analyzer_name="ko.microsoft"),
+        SearchableField(
+            name="title",
+            type=SearchFieldDataType.String,
+            analyzer_name="ko.microsoft",
+        ),
+        SearchableField(
+            name="content",
+            type=SearchFieldDataType.String,
+            analyzer_name="ko.microsoft",
+        ),
         SearchField(
             name="content_vector",
             type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
@@ -325,7 +391,23 @@ def ensure_index_semantic(index_client: SearchIndexClient, index_name: str, dim:
                 parameters=HnswParameters(metric=VectorSearchAlgorithmMetric.COSINE),
             )
         ],
-        profiles=[VectorSearchProfile(name="vprofile", algorithm_configuration_name="hnsw")],
+        profiles=[
+            VectorSearchProfile(
+                name="vprofile",
+                algorithm_configuration_name="hnsw",
+                vectorizer_name=VECTORIZER_NAME,
+            )
+        ],
+        vectorizers=[
+            AzureOpenAIVectorizer(
+                vectorizer_name=VECTORIZER_NAME,
+                parameters=AzureOpenAIVectorizerParameters(
+                    resource_url=embedding_resource_url,
+                    deployment_name=embedding_deployment,
+                    model_name=embedding_model,
+                ),
+            )
+        ],
     )
 
     # agentic retrieval은 semantic 랭킹을 사용하므로 기본 semantic 구성이 필요합니다.
@@ -349,7 +431,10 @@ def ensure_index_semantic(index_client: SearchIndexClient, index_name: str, dim:
         semantic_search=semantic_search,
     )
     index_client.create_index(index)
-    print(f"  → 인덱스 생성 완료: {index_name} (벡터 차원 {dim}, 코사인, semantic 구성 포함)")
+    print(
+        f"  → 인덱스 생성 완료: {index_name} "
+        f"(벡터 차원 {dim}, 코사인, 쿼리 벡터라이저, semantic 구성 포함)"
+    )
 
 
 def _documents_are_indexed(
@@ -423,6 +508,7 @@ def seed_iq_index(
     index_name: str,
     aoai_endpoint: str,
     embedding_deployment: str,
+    embedding_model: str,
     aoai_api_version: str,
     credential: TokenCredential,
 ) -> int:
@@ -431,8 +517,9 @@ def seed_iq_index(
     Args:
         search_endpoint: Azure AI Search 엔드포인트.
         index_name: Foundry IQ 인덱스 이름.
-        aoai_endpoint: 임베딩 호출용 Azure OpenAI 엔드포인트.
+        aoai_endpoint: 문서 임베딩과 Search 쿼리 벡터라이저용 Azure OpenAI 엔드포인트.
         embedding_deployment: 임베딩 모델 배포 이름.
+        embedding_model: 배포의 실제 임베딩 모델 이름.
         aoai_api_version: Azure OpenAI API 버전.
         credential: 동기 토큰 자격 증명(AzureCliCredential 등).
 
@@ -447,7 +534,14 @@ def seed_iq_index(
     print(f"  → 임베딩 차원: {dim}")
 
     index_client = SearchIndexClient(endpoint=search_endpoint, credential=credential)
-    ensure_index_semantic(index_client, index_name, dim)
+    ensure_index_semantic(
+        index_client,
+        index_name,
+        dim,
+        aoai_endpoint,
+        embedding_deployment,
+        embedding_model,
+    )
 
     search_client = SearchClient(
         endpoint=search_endpoint,
@@ -465,12 +559,12 @@ def build_agentic_provider(
     azure_openai_resource_url: str,
     query_planning_model: str,
     credential: AsyncTokenCredential,
-    retrieval_reasoning_effort: ReasoningEffort = "minimal",
+    retrieval_reasoning_effort: ReasoningEffort = "low",
 ) -> AzureAISearchContextProvider:
     """인덱스 기반 Foundry IQ agentic 컨텍스트 프로바이더를 생성합니다.
 
     인덱스로부터 지식 소스·지식 베이스를 자동 생성(create-or-update, 멱등)하고,
-    멀티홉 agentic 검색 결과를 에이전트 세션 컨텍스트에 주입합니다.
+    질의 계획 기반 멀티쿼리 검색 결과를 에이전트 세션 컨텍스트에 주입합니다.
 
     Args:
         search_endpoint: Azure AI Search 엔드포인트.
@@ -478,11 +572,13 @@ def build_agentic_provider(
         azure_openai_resource_url: 지식 베이스 모델이 사용할 Azure OpenAI 리소스 URL.
         query_planning_model: 지식 베이스의 질의 계획에 사용할 **채팅 모델 배포 이름**
             (예: ``gpt-5.4``). 지식 베이스 모델은 임베딩이 아니라 채팅 모델이어야
-            합니다(gpt-4o / gpt-4.1 / gpt-5.x 계열).
+            합니다(gpt-4o / gpt-4.1 / gpt-5.x 계열). 이 프로바이더 버전은 같은 값을
+            지식 베이스의 배포 이름과 모델 이름에 모두 사용하므로 두 이름이 같아야 합니다.
         credential: 비동기 자격 증명(``azure.identity.aio.AzureCliCredential`` 등).
             프로바이더 내부가 비동기 Search 클라이언트를 사용하므로 비동기 자격 증명이
             필요합니다.
-        retrieval_reasoning_effort: 질의 계획 추론 강도(minimal/low/medium).
+        retrieval_reasoning_effort: 질의 계획 추론 강도(minimal/low/medium). ``minimal``은
+            LLM 질의 계획을 건너뛰므로 멀티쿼리 실습의 기본값은 ``low``입니다.
 
     Returns:
         ``AzureAISearchContextProvider`` 인스턴스(에이전트의 ``context_providers``에 전달).
@@ -507,7 +603,7 @@ def resolve_iq_env() -> IQConfig:
     Raises:
         ValueError: 질의 계획 추론 강도 값이 허용 범위를 벗어날 때.
     """
-    reasoning_effort = os.getenv("FOUNDRY_IQ_REASONING_EFFORT", "minimal")
+    reasoning_effort = os.getenv("FOUNDRY_IQ_REASONING_EFFORT", "low")
     if reasoning_effort not in {"minimal", "low", "medium"}:
         raise ValueError(
             "FOUNDRY_IQ_REASONING_EFFORT는 minimal, low, medium 중 하나여야 합니다."
@@ -517,12 +613,13 @@ def resolve_iq_env() -> IQConfig:
         "project_endpoint": os.getenv("PROJECT_ENDPOINT"),
         "model": os.getenv("MODEL_DEPLOYMENT_NAME") or "gpt-5.4",
         "search_endpoint": os.getenv("SEARCH_SERVICE_ENDPOINT"),
-        "index_name": os.getenv("SEARCH_INDEX_NAME_IQ", "maf-lab-knowledge-iq-v2"),
+        "index_name": os.getenv("SEARCH_INDEX_NAME_IQ", "maf-lab-knowledge-iq-v3"),
         "aoai_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
-        # 일부 환경에서 agentic 벡터화는 .openai.azure.com 형식을 요구할 수 있어 분리 가능
+        # 모델 공급자 리소스 루트 URL이며, 미설정 시 임베딩 엔드포인트를 재사용
         "aoai_resource_url": os.getenv("AZURE_OPENAI_RESOURCE_URL")
         or os.getenv("AZURE_OPENAI_ENDPOINT"),
         "embedding_deployment": os.getenv("EMBEDDING_DEPLOYMENT_NAME") or "text-embedding-3-large",
+        "embedding_model": os.getenv("EMBEDDING_MODEL_NAME") or "text-embedding-3-large",
         "aoai_api_version": os.getenv("AZURE_OPENAI_API_VERSION", "2024-10-21"),
         "reasoning_effort": cast(ReasoningEffort, reasoning_effort),
     }

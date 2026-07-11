@@ -1,3 +1,4 @@
+# azd ai agent 코드 ZIP 제외 패턴
 agent.manifest.yaml
 agent.yaml
 .env.example

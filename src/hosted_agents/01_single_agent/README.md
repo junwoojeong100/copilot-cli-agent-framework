@@ -6,6 +6,7 @@ Microsoft Foundry **Hosted Agent**(관리형 컨테이너)로 배포합니다.
 > **호환성 고정**: MAF `1.8.1` + hosting `1.0.0a260528` + Responses `1.0.0` +
 > azd `azure.ai.agents` 확장 `0.1.37-preview` 조합입니다. 최신 확장/hosting으로
 > 개별 업그레이드하면 Responses 2.0·MAF core 1.10 이상 요구사항과 충돌할 수 있습니다.
+> 배포 계정에는 Foundry 프로젝트 범위의 **Foundry Project Manager** 역할이 필요합니다.
 
 ## 핵심 코드 (`main.py`)
 
@@ -57,7 +58,7 @@ finally:
 | | `agent.yaml` | 배포 런타임 스펙(CPU·메모리·프로토콜·env). `azd deploy`가 참조 |
 | | `Dockerfile` | 컨테이너 배포 모드 전용 이미지 정의. **코드(ZIP) 모드에선 미사용** |
 | **로컬·보조** | `.env.example` | 로컬 테스트용 환경변수 템플릿(`cp .env.example .env`) |
-| | `.azdignore`·`.dockerignore` | 업로드·이미지에서 제외할 파일(`.venv`·`__pycache__`·매니페스트 등) |
+| | `.agentignore`·`.dockerignore` | 코드 ZIP·이미지에서 제외할 파일(`.venv`·`__pycache__`·매니페스트 등) |
 
 ## 사전 준비
 

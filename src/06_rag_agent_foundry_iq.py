@@ -4,12 +4,12 @@
 검색). 이 변형은 동일한 지식 베이스를 **Foundry IQ**(지식 베이스 + agentic retrieval)에
 올리고, 검색 단계를 ``AzureAISearchContextProvider``(agentic 모드)에 위임합니다.
 
-  [질문] → [Foundry IQ agentic 검색(멀티홉)] → [컨텍스트 자동 주입] → [에이전트 답변]
+  [질문] → [Foundry IQ agentic 검색(질의 계획 + 멀티쿼리)] → [컨텍스트 자동 주입] → [답변]
 
 핵심 차이(기존 06 대비):
-  - 인덱스를 **기본 semantic 구성**과 함께 생성합니다(agentic retrieval 필수).
+  - 인덱스를 **기본 semantic 구성 + 쿼리 벡터라이저**와 함께 생성합니다.
   - 검색·증강을 직접 코딩하지 않고, 컨텍스트 프로바이더가 ``before_run`` 훅에서
-    멀티홉 검색을 수행하고 결과를 세션 컨텍스트에 주입합니다.
+    복합 질문을 하위 질의로 계획해 검색하고 결과를 세션 컨텍스트에 주입합니다.
   - 프로바이더는 인덱스로부터 지식 소스/지식 베이스(``<index>-kb``)를 자동 생성합니다.
 
 필요 리소스:
@@ -65,7 +65,7 @@ async def main() -> None:
     aio_credential = AioAzureCliCredential()
 
     try:
-        # ── 1단계: Foundry IQ 인덱스 생성 + 지식 베이스 시드(기본 semantic 구성 포함) ──
+        # ── 1단계: Foundry IQ 인덱스 생성 + 지식 베이스 시드(벡터라이저·semantic 포함) ──
         print("[1단계] Foundry IQ 인덱스 생성/시드...")
         await asyncio.to_thread(
             seed_iq_index,
@@ -73,6 +73,7 @@ async def main() -> None:
             index_name=cfg["index_name"],
             aoai_endpoint=cfg["aoai_endpoint"],
             embedding_deployment=cfg["embedding_deployment"],
+            embedding_model=cfg["embedding_model"],
             aoai_api_version=cfg["aoai_api_version"],
             credential=credential,
         )

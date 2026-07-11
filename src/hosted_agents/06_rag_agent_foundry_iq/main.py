@@ -3,12 +3,12 @@
 기존 ``src/hosted_agents/06_rag_agent/``는 하이브리드 검색을 **함수 도구**로 노출해
 에이전트가 직접 검색합니다. 이 변형은 검색을 **Foundry IQ**(지식 베이스 + agentic
 retrieval)에 위임합니다. ``AzureAISearchContextProvider``(agentic 모드)를 컨텍스트
-프로바이더로 연결하면, 에이전트는 질문을 받을 때마다 지식 베이스에 멀티홉 검색을
-수행하고 그 결과를 컨텍스트로 받아 근거 기반으로 답변합니다.
+프로바이더로 연결하면, 에이전트는 질문을 받을 때마다 지식 베이스에서 질의 계획 기반
+멀티쿼리 검색을 수행하고 그 결과를 컨텍스트로 받아 근거 기반으로 답변합니다.
 
 전제 — 지식 베이스 사전 생성:
   이 호스팅 예제는 **이미 생성된 Foundry IQ 지식 베이스**(기본
-  ``maf-lab-knowledge-iq-v2-kb``)에 연결만 합니다. 저장소 루트에서
+  ``maf-lab-knowledge-iq-v3-kb``)에 연결만 합니다. 저장소 루트에서
   ``src/06_rag_agent_foundry_iq.py``를 한 번 실행하면 인덱스 시드 + 지식 베이스
   생성이 끝납니다(자동 생성에 필요한 컨트롤플레인 권한은 콘솔 실행 사용자에게만
   요구되고, 호스팅 인스턴스에는 검색(데이터 리더) 권한만 있으면 됩니다).
@@ -39,8 +39,8 @@ MODEL = (
 )
 SEARCH_ENDPOINT = os.getenv("SEARCH_SERVICE_ENDPOINT")
 # 기존 지식 베이스 이름. 콘솔 예제가 만든 ``<index>-kb`` 규칙을 따릅니다.
-KNOWLEDGE_BASE_NAME = os.getenv("SEARCH_KNOWLEDGE_BASE_NAME", "maf-lab-knowledge-iq-v2-kb")
-REASONING_EFFORT = os.getenv("FOUNDRY_IQ_REASONING_EFFORT", "minimal")
+KNOWLEDGE_BASE_NAME = os.getenv("SEARCH_KNOWLEDGE_BASE_NAME", "maf-lab-knowledge-iq-v3-kb")
+REASONING_EFFORT = os.getenv("FOUNDRY_IQ_REASONING_EFFORT", "low")
 
 
 async def main() -> None:

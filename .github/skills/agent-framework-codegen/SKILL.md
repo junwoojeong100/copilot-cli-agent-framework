@@ -352,7 +352,7 @@ async with learn_mcp:
     result = await agent.run("질문")
 ```
 
-- `MCPStreamableHTTPTool` — HTTP/SSE 원격 서버
+- `MCPStreamableHTTPTool` — Streamable HTTP 원격 서버
 - `MCPStdioTool` — 로컬 프로세스(stdio) 서버
 - `MCPWebsocketTool` — WebSocket 서버
 
@@ -382,7 +382,7 @@ result = await agent.run(augmented)          # 3) 생성
 ### 13.2 컨텍스트 프로바이더 방식 — Foundry IQ agentic (`src/06_rag_agent_foundry_iq.py`)
 
 검색 단계를 **컨텍스트 프로바이더**에 위임한다. 에이전트가 실행될 때 프로바이더가
-멀티홉(agentic) 검색으로 컨텍스트를 자동 주입한다.
+질의 계획 기반 멀티쿼리(agentic) 검색으로 컨텍스트를 자동 주입한다.
 
 ```python
 from agent_framework.azure import AzureAISearchContextProvider
@@ -397,6 +397,7 @@ try:
         model=chat_model_deployment,               # 질의 계획용 채팅 모델
         azure_openai_resource_url=aoai_resource_url,
         credential=aio_credential,
+        retrieval_reasoning_effort="low",          # minimal은 LLM 질의 계획을 건너뜀
     ) as provider:
         agent = Agent(
             client=client,
@@ -413,6 +414,12 @@ finally:
 - 13.1은 `SEARCH_SERVICE_ENDPOINT`·`SEARCH_INDEX_NAME`이 필요하다(인덱스 없으면 자동 생성).
 - 13.2는 인덱스에 **기본 semantic 구성**이 있어야 하며, agentic 모드에서는 질의 계획용
   채팅 모델·Azure OpenAI 리소스 URL·비동기 자격 증명이 필요하다.
+- 멀티쿼리 질의 계획은 `retrieval_reasoning_effort="low"` 또는 `"medium"`에서 동작한다.
+  `"minimal"`은 LLM 질의 계획을 건너뛰고 전달된 검색 의도를 그대로 실행한다.
+- 벡터 검색까지 사용하려면 인덱스 벡터 프로필에, 문서 임베딩과 같은 모델을 쓰는 쿼리
+  벡터라이저가 연결되어야 한다.
+- 이 provider 버전은 `model` 값을 지식 베이스의 배포 이름과 모델 이름에 모두 사용하므로,
+  질의 계획 모델 배포 이름을 실제 모델 이름(예: `gpt-5.4`)과 같게 만든다.
 
 ## 14. 트러블슈팅
 
