@@ -33,8 +33,8 @@ from agent_framework.foundry import FoundryChatClient
 from azure.identity import AzureCliCredential
 from azure.identity.aio import AzureCliCredential as AioAzureCliCredential
 
-from _rag_iq import build_agentic_provider, resolve_iq_env, seed_iq_index
-from _streaming import stream_agent
+from ._rag_iq import build_agentic_provider, resolve_iq_env, seed_iq_index
+from ._streaming import stream_agent
 
 
 async def main() -> None:

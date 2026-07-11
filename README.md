@@ -33,8 +33,8 @@ Part 2부터 예제를 하나씩 실행하며 단계적으로 확장하세요.
 - [Part 4. GroupChat 워크플로우](#part-4-groupchat-워크플로우)
 - [Part 5. 동시(Concurrent) 워크플로우](#part-5-동시concurrent-워크플로우)
 - [Part 6. MCP 도구 연동 에이전트](#part-6-mcp-도구-연동-에이전트)
-- [Part 7. RAG — 검색 증강 생성](#part-7-rag--검색-증강-생성)
-- [Part 8. Hosted Agent 배포 — MAF 에이전트·워크플로우를 관리형으로](#part-8-hosted-agent-배포--maf-에이전트워크플로우를-관리형으로)
+- [Part 7. RAG — 검색 증강 생성](#part-7-rag-검색-증강-생성)
+- [Part 8. Hosted Agent 배포 — MAF 에이전트·워크플로우를 관리형으로](#part-8-hosted-agent-배포-maf-에이전트워크플로우를-관리형으로)
 - [부록 A. 트러블슈팅](#부록-a-트러블슈팅)
 - [부록 B. 참고 자료](#부록-b-참고-자료)
 
@@ -794,7 +794,7 @@ python src/06_rag_agent_foundry_iq.py
 구동되는 `/responses` HTTP 엔드포인트로 노출합니다. 에이전트를 SDK로 재작성하지 않아도
 관리형 인프라 + **자동 trace/monitoring**을 그대로 얻는 것이 핵심입니다.
 
-> 🚀 **바로 해보기**: **로컬 테스트 → 배포 → 호출**은 **[8.3](#83-로컬-실행--배포--호출--01-예제)**,
+> 🚀 **바로 해보기**: **로컬 테스트 → 배포 → 호출**은 **[8.3](#83-로컬-실행-배포-호출-01-예제)**,
 > **예제별 배포 명령**은 **[8.4](#84-예제별-배포-명령-7개-예제)**. 가장 간단한 호출은 `azd ai agent invoke "<질문>"`
 > 한 줄입니다. 개념·파일 설명(8.1~8.2)은 건너뛰고 8.3부터 시작해도 됩니다.
 
@@ -1042,7 +1042,7 @@ Azure Container Registry가 추가로 필요합니다(azd가 **AcrPull** 권한 
 
 ### 프로젝트 문서
 
-- [Hosted Agent 배포 예제](src/hosted_agents/) — 예제별 배포·원격 테스트(폴더별 `README.md`). 개요는 [Part 8](#part-8-hosted-agent-배포--maf-에이전트워크플로우를-관리형으로) 참고.
+- [Hosted Agent 배포 예제](src/hosted_agents/) — 예제별 배포·원격 테스트(폴더별 `README.md`). 개요는 [Part 8](#part-8-hosted-agent-배포-maf-에이전트워크플로우를-관리형으로) 참고.
 
 ### 외부 링크
 

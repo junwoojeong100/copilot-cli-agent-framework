@@ -49,7 +49,7 @@ from azure.search.documents.indexes.models import (
 from azure.search.documents.models import VectorizedQuery
 from openai import AzureOpenAI
 
-from _streaming import stream_agent
+from ._streaming import stream_agent
 
 
 class RetrievedDocument(TypedDict):

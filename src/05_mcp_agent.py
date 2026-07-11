@@ -23,7 +23,7 @@ from agent_framework import Agent, MCPStreamableHTTPTool
 from agent_framework.foundry import FoundryChatClient
 from azure.identity import AzureCliCredential
 
-from _streaming import stream_agent
+from ._streaming import stream_agent
 
 
 async def main() -> None:

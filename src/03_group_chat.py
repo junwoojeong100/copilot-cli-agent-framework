@@ -18,7 +18,7 @@ from agent_framework.orchestrations import GroupChatBuilder, GroupChatState
 from agent_framework.foundry import FoundryChatClient
 from azure.identity import AzureCliCredential
 
-from _streaming import stream_workflow
+from ._streaming import stream_workflow
 
 
 async def main() -> None:
