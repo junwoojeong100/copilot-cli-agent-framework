@@ -11,4 +11,4 @@ __pycache__
 README.md
 agent.yaml
 agent.manifest.yaml
-.azdignore
+.agentignore

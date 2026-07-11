@@ -3,7 +3,7 @@
 > **Microsoft Foundry 기반의 Microsoft Agent Framework로 멀티 에이전트(+ MCP 도구 연동 · RAG)를
 > Python으로 단계별로 직접 만들어보는 자체 완결형 핸즈온 랩.**
 
-이 문서는 `src/`의 핵심 6가지 Agent Framework 예제(4가지 멀티 에이전트 패턴 + MCP 도구 연동 + RAG, 06번은 하이브리드·Foundry IQ 2가지 변형 포함, 총 7개 스크립트)를
+이 문서는 `src/`의 핵심 6가지 Agent Framework 예제(단일 에이전트 + 3가지 멀티 에이전트 패턴 + MCP 도구 연동 + RAG, 06번은 하이브리드·Foundry IQ 2가지 변형 포함, 총 7개 스크립트)를
 다룹니다. 각 예제는 Python으로 작성되어 `FoundryChatClient`로 Microsoft Foundry에 연결하며, 루트에는
 에이전트 공통 가드레일 `AGENTS.md`가 있습니다.
 
@@ -33,8 +33,8 @@ Part 2부터 예제를 하나씩 실행하며 단계적으로 확장하세요.
 - [Part 4. GroupChat 워크플로우](#part-4-groupchat-워크플로우)
 - [Part 5. 동시(Concurrent) 워크플로우](#part-5-동시concurrent-워크플로우)
 - [Part 6. MCP 도구 연동 에이전트](#part-6-mcp-도구-연동-에이전트)
-- [Part 7. RAG — 검색 증강 생성](#part-7-rag-검색-증강-생성)
-- [Part 8. Hosted Agent 배포 — MAF 에이전트·워크플로우를 관리형으로](#part-8-hosted-agent-배포-maf-에이전트워크플로우를-관리형으로)
+- [Part 7. RAG — 검색 증강 생성](#part-7-rag--검색-증강-생성)
+- [Part 8. Hosted Agent 배포 — MAF 에이전트·워크플로우를 관리형으로](#part-8-hosted-agent-배포--maf-에이전트워크플로우를-관리형으로)
 - [부록 A. 트러블슈팅](#부록-a-트러블슈팅)
 - [부록 B. 참고 자료](#부록-b-참고-자료)
 
@@ -54,7 +54,7 @@ Part 2부터 예제를 하나씩 실행하며 단계적으로 확장하세요.
 │   ├── skills/
 │   │   └── agent-framework-codegen/SKILL.md   # MAF 코드 생성 패턴
 │   └── workflows/
-│       └── smoke.yml               # 예제 스크립트 바이트컴파일 스모크 CI
+│       └── smoke.yml               # 의존성·바이트컴파일·모듈 임포트 스모크 CI
 └── src/                            # Microsoft Agent Framework 예제
     ├── 01_single_agent.py          # 단일 에이전트
     ├── 02_sequential_workflow.py   # 순차 (분석가→작가→편집자)
@@ -136,9 +136,10 @@ Part 2부터 예제를 하나씩 실행하며 단계적으로 확장하세요.
 ```bash
 az login
 
-# 0) 변수 설정 (이름은 전역 고유해야 하며, 리전은 모델 가용성에 맞게 조정)
+# 0) 변수 설정 (이름은 전역 고유해야 하며, 리전은 모델/기능 가용성에 맞게 조정)
 RG=rg-maf-lab
 LOCATION=eastus2
+SEARCH_LOCATION=koreacentral      # agentic retrieval + semantic ranker 지원 리전
 FOUNDRY=foundry-maf-lab          # Foundry(AIServices) 리소스 이름
 PROJECT=proj-maf-lab             # Foundry 프로젝트 이름
 SEARCH=search-maf-lab            # Azure AI Search 서비스 이름
@@ -180,19 +181,20 @@ az cognitiveservices account deployment create \
 #      필수 옵션입니다. (생략하면 'requires an AadAuthFailureMode parameter' 오류가 납니다.)
 #    --semantic-search free: 예제 06 변형(Foundry IQ agentic retrieval)에 필요한
 #      semantic ranker를 켭니다. (free 플랜은 월 무료 할당량 제공)
-#    ⚠️ Foundry IQ를 쓰려면 LOCATION이 agentic retrieval 지원 리전이어야 합니다
-#       (예: eastus2). 미지원 리전이면 기본 06(하이브리드) 예제만 동작합니다.
+#    ⚠️ Foundry IQ를 쓰려면 SEARCH_LOCATION이 agentic retrieval 지원 리전이어야 합니다.
+#       미지원 리전이면 기본 06(하이브리드) 예제만 동작합니다.
 #    리전이 용량 부족(InsufficientResourcesAvailable)이면 다른 리전을 사용하세요.
-#      (Search 서비스는 Foundry 리소스와 다른 리전이어도 됩니다. 예: Foundry=eastus2,
-#       Search=eastus. eastus도 agentic retrieval 지원 리전입니다.)
-az search service create -n $SEARCH -g $RG -l $LOCATION --sku basic \
+#      Search 서비스는 Foundry 리소스와 다른 리전이어도 됩니다. 지원 여부와 현재 용량은
+#      https://learn.microsoft.com/azure/search/search-region-support 에서 확인하세요.
+az search service create -n $SEARCH -g $RG -l $SEARCH_LOCATION --sku basic \
   --auth-options aadOrApiKey --aad-auth-failure-mode http403 --semantic-search free
 
 # 5-1) (Foundry IQ 전용) Search 서비스에 시스템 할당 관리 ID 부여
-#      지식 베이스가 질의를 벡터화할 때 Search 서비스가 Azure OpenAI를 호출합니다.
+#      지식 베이스가 질의를 계획·벡터화할 때 Search 서비스가 모델 공급자를 호출합니다.
 az search service update -n $SEARCH -g $RG --identity-type SystemAssigned
 
-# 6) 권한(RBAC) — 본인 계정에 데이터플레인(리소스의 실제 데이터를 읽고 쓰는 작업) 역할 부여 (키리스 인증)
+# 6) 권한(RBAC) — 역할을 부여하는 계정에는 Owner 또는 User Access Administrator 필요
+#    본인 계정에 데이터플레인(리소스의 실제 데이터를 읽고 쓰는 작업) 역할 부여 (키리스 인증)
 ME=$(az ad signed-in-user show --query id -o tsv)
 ACC_ID=$(az cognitiveservices account show -n $FOUNDRY -g $RG --query id -o tsv)
 SEARCH_ID=$(az resource show -g $RG -n $SEARCH \
@@ -204,11 +206,11 @@ az role assignment create --assignee $ME --role "Search Service Contributor"    
 az role assignment create --assignee $ME --role "Search Index Data Contributor"  --scope $SEARCH_ID
 az role assignment create --assignee $ME --role "Search Index Data Reader"       --scope $SEARCH_ID
 
-# 6-1) (Foundry IQ 전용) Search 서비스 관리 ID에 Azure OpenAI 사용 권한 부여
-#      지식 베이스의 벡터화(임베딩) 호출에 필요합니다.
+# 6-1) (Foundry IQ 전용) Search 서비스 관리 ID에 모델 공급자 사용 권한 부여
+#      지식 베이스의 질의 계획·벡터화 호출에 필요합니다.
 SEARCH_MI=$(az search service show -n $SEARCH -g $RG --query identity.principalId -o tsv)
 az role assignment create --assignee-object-id $SEARCH_MI --assignee-principal-type ServicePrincipal \
-  --role "Cognitive Services OpenAI User" --scope $ACC_ID
+  --role "Cognitive Services User" --scope $ACC_ID
 
 # 7) (선택) Application Insights 생성 — 에이전트 추적(Tracing) 활성화용
 #    Foundry 프로젝트에 연결하면 Hosted Agent(Part 8) 런타임이 추적을 자동 전송하고,
@@ -233,8 +235,8 @@ az monitor app-insights component create \
 
 > **RAG 인덱스 생성**: 별도 명령이 필요 없습니다. 예제 06의 `06_rag_agent.py`(하이브리드)와
 > `06_rag_agent_foundry_iq.py`(Foundry IQ)가 **첫 실행 시 인덱스를 자동 생성**하고 문서를
-> 임베딩·업로드합니다(멱등). Foundry IQ 예제는 별도 인덱스(`maf-lab-knowledge-iq-v2`)와
-> 지식 베이스(`maf-lab-knowledge-iq-v2-kb`)까지 자동으로 만듭니다.
+> 임베딩·업로드합니다(멱등). Foundry IQ 예제는 별도 인덱스(`maf-lab-knowledge-iq-v3`)와
+> 지식 베이스(`maf-lab-knowledge-iq-v3-kb`)까지 자동으로 만듭니다.
 
 > **이미 만든 Search 서비스에서 'Forbidden'이 난다면** 키리스(Entra ID) 인증이 꺼져 있는
 > 경우입니다. 다음으로 활성화하세요.
@@ -292,8 +294,9 @@ az login                    # 예제는 AzureCliCredential로 이 로그인 세�
 | `SEARCH_INDEX_NAME` | 검색 인덱스 이름 | RAG 실습 (06번) |
 | `SEARCH_INDEX_NAME_IQ` | Foundry IQ용 별도 인덱스 이름 | 로컬 RAG IQ 실습 |
 | `AZURE_OPENAI_ENDPOINT` | 문서·질문 임베딩 호출 엔드포인트 | RAG 실습 |
-| `AZURE_OPENAI_RESOURCE_URL` | Foundry IQ 질의 벡터화용 리소스 URL | RAG IQ 실습 (선택) |
+| `AZURE_OPENAI_RESOURCE_URL` | Foundry IQ 지식 베이스 모델 공급자 URL | RAG IQ 실습 (선택) |
 | `EMBEDDING_DEPLOYMENT_NAME` | 임베딩 모델 배포 이름 | RAG 실습 |
+| `EMBEDDING_MODEL_NAME` | 임베딩 배포의 실제 모델 이름 | RAG IQ 실습 |
 | `AZURE_OPENAI_API_VERSION` | Azure OpenAI API 버전 | RAG 실습 |
 | `FOUNDRY_IQ_REASONING_EFFORT` | agentic 질의 계획 강도(`minimal`/`low`/`medium`) | RAG IQ 실습 |
 | `SEARCH_KNOWLEDGE_BASE_NAME` | Foundry IQ 지식 기반 이름 | RAG IQ 실습 (06_foundry_iq) |
@@ -314,14 +317,18 @@ SEARCH_SERVICE_ENDPOINT=https://your-search-service.search.windows.net
 SEARCH_INDEX_NAME=maf-lab-knowledge-v2
 AZURE_OPENAI_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
 EMBEDDING_DEPLOYMENT_NAME=text-embedding-3-large
+EMBEDDING_MODEL_NAME=text-embedding-3-large
 AZURE_OPENAI_API_VERSION=2024-10-21
 
 # 예제 06 변형 (Foundry IQ RAG) — 지식 베이스 + agentic retrieval
-SEARCH_INDEX_NAME_IQ=maf-lab-knowledge-iq-v2
-# (선택) 일부 환경은 .openai.azure.com 형식의 벡터화 리소스 URL을 요구합니다.
+SEARCH_INDEX_NAME_IQ=maf-lab-knowledge-iq-v3
+# (선택) 모델 공급자 리소스 루트 URL을 별도로 지정할 때 사용합니다.
+# /api/projects/...가 붙은 Foundry 프로젝트 엔드포인트는 사용하지 않습니다.
+# 지원 도메인: openai.azure.com, services.ai.azure.com, cognitiveservices.azure.com
 # AZURE_OPENAI_RESOURCE_URL=https://your-resource.openai.azure.com/
-# (선택) 질의 계획 추론 강도 (minimal/low/medium, 기본값: minimal)
-# FOUNDRY_IQ_REASONING_EFFORT=minimal
+# (선택) 질의 계획 추론 강도 (minimal/low/medium, 기본값: low)
+# minimal은 LLM 질의 계획을 건너뛰고 단일 검색 의도를 그대로 실행합니다.
+# FOUNDRY_IQ_REASONING_EFFORT=low
 ```
 
 ### 1.4 리소스 정리 (실습 종료 후)
@@ -598,7 +605,7 @@ async with learn_mcp:
 
 | 항목 | 설명 |
 |------|------|
-| `MCPStreamableHTTPTool` | HTTP(SSE) 기반 원격 MCP 서버에 연결하는 도구 래퍼 |
+| `MCPStreamableHTTPTool` | Streamable HTTP 기반 원격 MCP 서버에 연결하는 도구 래퍼 |
 | `header_provider` / 커스텀 `http_client` | 인증이 필요한 서버는 헤더를 직접 넘기지 말고 `header_provider` 콜백 또는 커스텀 `http_client`로 `Authorization` 등을 설정 |
 | `async with mcp_tool:` | 세션 컨텍스트. 진입 시 도구 목록 로드, 종료 시 연결 정리 |
 | `tools=` | 에이전트가 사용할 도구 전달. LLM이 필요 시 스스로 호출 |
@@ -736,24 +743,25 @@ RBAC: 실행 사용자는 검색 서비스에 **Search Service Contributor**(인
 
 지식 베이스를 코드에서 직접 검색하는 대신 **Foundry IQ** 지식 베이스에 검색을
 위임할 수 있습니다. `agent_framework.azure`의 `AzureAISearchContextProvider`(agentic
-모드)를 에이전트의 `context_providers`에 연결하면, 에이전트가 질문을 받을 때마다
-지식 베이스에 **멀티홉 검색**을 수행하고 그 결과를 컨텍스트로 자동 주입합니다.
-검색·증강을 직접 코딩할 필요가 없습니다.
+모드)를 에이전트의 `context_providers`에 연결하면, 복합 질문을 하위 질의로 계획해
+병렬 검색하고 그 결과를 컨텍스트로 자동 주입합니다. 검색·증강을 직접 코딩할 필요가
+없습니다.
 
 ```python
 from agent_framework.azure import AzureAISearchContextProvider
 from azure.identity.aio import AzureCliCredential as AioAzureCliCredential
 
 aio_credential = AioAzureCliCredential()
-# 인덱스로부터 지식 소스/지식 베이스(<index>-kb)를 자동 생성하고 멀티홉 검색
+# 인덱스로부터 지식 소스/지식 베이스(<index>-kb)를 자동 생성하고 멀티쿼리 검색
 try:
     async with AzureAISearchContextProvider(
         endpoint=search_endpoint,
-        index_name="maf-lab-knowledge-iq-v2",
+        index_name="maf-lab-knowledge-iq-v3",
         mode="agentic",
         model=chat_model_deployment,              # 질의 계획용 채팅 모델(예: gpt-5.4)
         azure_openai_resource_url=aoai_resource_url,
         credential=aio_credential,                # 비동기 자격 증명 필수
+        retrieval_reasoning_effort="low",         # minimal은 LLM 질의 계획을 건너뜀
     ) as provider:
         agent = Agent(client=client, instructions="...근거 기반 답변...",
                       context_providers=[provider])
@@ -770,16 +778,24 @@ python src/06_rag_agent_foundry_iq.py
 
 | 구분 | `06_rag_agent.py` (하이브리드) | `06_rag_agent_foundry_iq.py` (Foundry IQ) |
 | --- | --- | --- |
-| 검색 주체 | Python 코드(직접 BM25+벡터 융합) | Foundry IQ 지식 베이스(agentic 멀티홉) |
+| 검색 주체 | Python 코드(직접 BM25+벡터 융합) | Foundry IQ(agentic 멀티쿼리+벡터+semantic) |
 | 증강 | 직접 프롬프트 조립 | 컨텍스트 프로바이더가 자동 주입 |
-| 인덱스 | `maf-lab-knowledge-v2` | `maf-lab-knowledge-iq-v2` (+ 기본 semantic 구성) |
+| 인덱스 | `maf-lab-knowledge-v2` | `maf-lab-knowledge-iq-v3` (+ 벡터라이저·semantic 구성) |
 | 추가 리소스 | — | semantic ranker 활성화 + agentic 지원 리전 |
+
+> 기본 추론 강도는 `low`입니다. `minimal`은 비용과 지연을 줄이는 대신 LLM 질의 계획을
+> 건너뛰므로, 복합 질문을 하위 질의로 분해하는 동작을 실습하려면 `low` 또는 `medium`을
+> 사용하세요. IQ 인덱스의 Azure OpenAI 벡터라이저는 문서 시드에 사용한 임베딩 모델과
+> 같아야 하므로, 배포 이름과 실제 모델 이름을 각각 `EMBEDDING_DEPLOYMENT_NAME`과
+> `EMBEDDING_MODEL_NAME`에 설정합니다. 현재 Search 컨텍스트 프로바이더는 질의 계획
+> 채팅 모델에 하나의 값만 받아 지식 베이스의 배포 이름과 모델 이름에 함께 사용하므로,
+> `MODEL_DEPLOYMENT_NAME`도 실제 모델 이름(예: `gpt-5.4`)과 같게 지정하세요.
 
 > **요구사항**: Azure AI Search에 **semantic ranker 활성화**(`--semantic-search free`),
 > **agentic retrieval 지원 리전**, 인덱스의 **기본 semantic 구성**(예제가 자동 생성),
 > Search 서비스 관리 ID의 Azure OpenAI 사용 권한이 필요합니다([1.2 프로비저닝](#12-azure-리소스-프로비저닝) 참고).
-> 기존 IQ 인덱스에 기본 semantic 구성이나 올바른 벡터 차원이 없으면 예제는 명시적으로
-> 실패하므로 `SEARCH_INDEX_NAME_IQ`를 새 이름으로 바꿔 다시 생성하세요.
+> 기존 IQ 인덱스에 기본 semantic 구성, 쿼리 벡터라이저, 올바른 벡터 차원이 없으면 예제는
+> 명시적으로 실패하므로 `SEARCH_INDEX_NAME_IQ`를 새 이름으로 바꿔 다시 생성하세요.
 > Part 8 Hosted Agent 트랙에도 동일한 Foundry IQ 변형 예제가 있습니다.
 
 > ✅ **체크포인트**: 지식 베이스에 없는 질문(예: "배송비는 얼마인가요?")에 에이전트가
@@ -794,13 +810,13 @@ python src/06_rag_agent_foundry_iq.py
 구동되는 `/responses` HTTP 엔드포인트로 노출합니다. 에이전트를 SDK로 재작성하지 않아도
 관리형 인프라 + **자동 trace/monitoring**을 그대로 얻는 것이 핵심입니다.
 
-> 🚀 **바로 해보기**: **로컬 테스트 → 배포 → 호출**은 **[8.3](#83-로컬-실행-배포-호출-01-예제)**,
+> 🚀 **바로 해보기**: **로컬 테스트 → 배포 → 호출**은 **[8.3](#83-로컬-실행--배포--호출--01-예제)**,
 > **예제별 배포 명령**은 **[8.4](#84-예제별-배포-명령-7개-예제)**. 가장 간단한 호출은 `azd ai agent invoke "<질문>"`
 > 한 줄입니다. 개념·파일 설명(8.1~8.2)은 건너뛰고 8.3부터 시작해도 됩니다.
 
 > 위치: [`src/hosted_agents/`](src/hosted_agents/) — 7개 예제(01~06 + 06 Foundry IQ 변형)가 각각
-> 독립 배포 가능한 azd 프로젝트(`main.py`·`Dockerfile`·`agent.yaml`·`agent.manifest.yaml`·
-> `requirements.txt`·`.env.example`)로 들어 있습니다.
+> 독립 배포용 azd 입력 소스 묶음(`main.py`·`Dockerfile`·`agent.yaml`·`agent.manifest.yaml`·
+> `requirements.txt`·`.env.example`·`.agentignore`·`.dockerignore`)로 들어 있습니다.
 > 의존성: `agent-framework-foundry-hosting` (+ 02~04 워크플로우는 `agent-framework-orchestrations` 추가 필요)
 
 > ⚠️ Hosted Agent 배포는 현재 **preview**입니다. 아래 권장 **코드(ZIP) 배포 모드**는 로컬 Docker가
@@ -809,6 +825,7 @@ python src/06_rag_agent_foundry_iq.py
 > `agent-framework-foundry-hosting==1.0.0a260528`,
 > azd `azure.ai.agents` 확장 `0.1.37-preview` 조합으로 검증했습니다. 최신 확장/hosting은
 > Responses 2.0과 MAF core 1.10 이상을 요구할 수 있으므로 별도로 업그레이드하지 마세요.
+> 배포 계정에는 Foundry 프로젝트 범위의 **Foundry Project Manager** 역할이 필요합니다.
 
 ### 8.1 로컬 스크립트 → Hosted Agent: 무엇이 바뀌나
 
@@ -872,8 +889,9 @@ python src/06_rag_agent_foundry_iq.py
 
 ### 8.2 폴더 구성 — 어떤 파일이 왜 필요한가
 
-각 `src/hosted_agents/<예제>/` 폴더는 **그 자체로 배포 가능한 azd 프로젝트**입니다. 루트 예제 하나가
-아래 파일 묶음으로 옮겨졌다고 보면 됩니다. 대부분 그대로 두면 되고, 보통 **`main.py`와 `requirements.txt`만**
+각 `src/hosted_agents/<예제>/` 폴더는 빈 작업 폴더에서 `azd ai agent init -m`에 전달하는
+**독립 배포용 입력 소스 묶음**입니다. init이 `azure.yaml`을 생성하면 배포 가능한 azd 프로젝트가 됩니다.
+루트 예제 하나가 아래 파일 묶음으로 옮겨졌다고 보면 됩니다. 대부분 그대로 두면 되고, 보통 **`main.py`와 `requirements.txt`만**
 신경 쓰면 됩니다. **내가 만든 MAF 코드를 직접 배포할 때 무엇을 손으로 만들고 무엇이 `azd`로 자동 생성되는지**는 아래 💡를 참고하세요.
 
 | 파일 | 무엇을 하나 | 직접 손대나? |
@@ -884,7 +902,7 @@ python src/06_rag_agent_foundry_iq.py
 | `agent.yaml` | **배포 런타임 스펙**(CPU·메모리·프로토콜·env). 이 저장소에 포함되어 있고 `azd deploy`가 참조 | 리소스 조정 시 |
 | `Dockerfile` | 컨테이너 이미지 정의(`python:3.14.5-slim`, 포트 8088). **코드(ZIP) 모드에선 안 쓰임**, 컨테이너 모드에서만 사용 | 컨테이너 모드일 때만 |
 | `.env.example` | **로컬 테스트용** 환경변수 템플릿. `cp .env.example .env` 후 값 입력(배포되면 런타임이 자동 주입) | 로컬 실행 전 |
-| `.dockerignore`·`.azdignore` | 이미지·업로드에서 제외할 파일(`.venv`·`__pycache__`·매니페스트 등) | 보통 그대로 |
+| `.dockerignore`·`.agentignore` | 이미지·코드 ZIP에서 제외할 파일(`.venv`·`__pycache__`·매니페스트 등) | 보통 그대로 |
 
 > 💡 **내 코드를 배포할 때 이 파일들을 일일이 만들어야 하나요?** 손으로 만드는 건 **에이전트를 정의하는 최소 파일**뿐입니다 —
 > `main.py`(내 MAF 에이전트를 `ResponsesHostServer`로 감싼 코드)·`requirements.txt`·에이전트 정의 YAML
@@ -907,11 +925,18 @@ python src/06_rag_agent_foundry_iq.py
 azd extension install azure.ai.agents --version 0.1.37-preview --force
 azd auth login                                             # 최초 1회
 REPO=~/GitHub/agent-framework-labs                          # 이 저장소를 clone 한 경로
+PROJECT_ID="$(az cognitiveservices account show -n $FOUNDRY -g $RG --query id -o tsv)/projects/$PROJECT"
+ME="$(az ad signed-in-user show --query id -o tsv)"
+
+# Hosted Agent 배포에 필요한 Foundry Project Manager 역할(역할 이름 변경에 안전하도록 ID 사용)
+az role assignment create --assignee-object-id "$ME" --assignee-principal-type User \
+  --role eadc314b-1a2d-4efa-be10-5d325db5065e --scope "$PROJECT_ID"
+
 mkdir -p ~/deploy/single && cd ~/deploy/single
 azd ai agent init --no-prompt \
   -m "$REPO/src/hosted_agents/01_single_agent/agent.manifest.yaml" \
   --agent-name maf-lab-single-agent \
-  --project-id "$(az cognitiveservices account show -n $FOUNDRY -g $RG --query id -o tsv)/projects/$PROJECT" \
+  --project-id "$PROJECT_ID" \
   --model-deployment gpt-5.4 --deploy-mode code --runtime python_3_14 \
   --entry-point main.py --protocol responses --force
 azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME gpt-5.4 && azd env set AI_AGENT_PENDING_PROVISION ""
@@ -1042,7 +1067,7 @@ Azure Container Registry가 추가로 필요합니다(azd가 **AcrPull** 권한 
 
 ### 프로젝트 문서
 
-- [Hosted Agent 배포 예제](src/hosted_agents/) — 예제별 배포·원격 테스트(폴더별 `README.md`). 개요는 [Part 8](#part-8-hosted-agent-배포-maf-에이전트워크플로우를-관리형으로) 참고.
+- [Hosted Agent 배포 예제](src/hosted_agents/) — 예제별 배포·원격 테스트(폴더별 `README.md`). 개요는 [Part 8](#part-8-hosted-agent-배포--maf-에이전트워크플로우를-관리형으로) 참고.
 
 ### 외부 링크
 
