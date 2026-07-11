@@ -269,20 +269,22 @@ cp .env.example .env        # 아래 값 입력
 az login                    # 예제는 AzureCliCredential로 이 로그인 세션을 사용
 ```
 
-이 저장소는 MAF 1.8.x API와 재현 가능한 설치를 위해 메타패키지 `agent-framework` 대신
-필요한 하위 패키지를 정확히 고정합니다.
+콘솔 예제는 MAF 1.8.x API와 재현 가능한 설치를 위해 메타패키지 `agent-framework` 대신
+필요한 하위 패키지를 정확히 고정합니다. Part 8 Hosted Agent는 Responses 2.0 지원을 위해
+별도 최신 조합을 사용합니다.
 
 | 용도 | 고정 버전 |
 |------|-----------|
-| Core / OpenAI / Foundry | `agent-framework-core==1.8.1` · `agent-framework-openai==1.8.1` · `agent-framework-foundry==1.8.1` |
-| 오케스트레이션 | `agent-framework-orchestrations==1.0.0rc3` |
+| 콘솔 Core / OpenAI / Foundry | `agent-framework-core==1.8.1` · `agent-framework-openai==1.8.1` · `agent-framework-foundry==1.8.1` |
+| 콘솔 오케스트레이션 | `agent-framework-orchestrations==1.0.0rc3` |
 | Azure AI Search 컨텍스트 프로바이더 | `agent-framework-azure-ai-search==1.0.0b260521` |
-| Hosted Agent | `agent-framework-foundry-hosting==1.0.0a260528` |
-| Hosted 프로토콜 / azd 확장 | Responses `1.0.0` / `azure.ai.agents==0.1.37-preview` |
+| Hosted Core / OpenAI / Foundry | `agent-framework-core==1.11.0` · `agent-framework-openai==1.10.1` · `agent-framework-foundry==1.10.1` |
+| Hosted 오케스트레이션 / hosting | `agent-framework-orchestrations==1.0.0` · `agent-framework-foundry-hosting==1.0.0a260709` |
+| Hosted 프로토콜 / azd 확장 | Responses `2.0.0` / `azure.ai.agents>=1.0.0-beta.5` · 단일 `azure.yaml` |
 
-> ⚠️ `agent-framework-orchestrations==1.0.0`과 최신 Search/hosting 프리릴리스는 MAF core
-> 1.9 이상을 요구할 수 있습니다. 패키지 하나만 임의로 업그레이드하지 말고 전체 호환
-> 매트릭스를 함께 갱신한 뒤 `python -m pip check`로 확인하세요.
+> ⚠️ 콘솔과 Hosted 예제는 핵심 패키지 버전이 다릅니다. 같은 가상환경에 동시에 설치하지
+> 말고 루트와 `src/hosted_agents/<예제>/`의 `requirements.txt`를 각각 독립된
+> 가상환경에서 설치하세요.
 
 컨텍스트별 주요 환경 변수는 다음과 같습니다.
 
@@ -815,16 +817,17 @@ python src/06_rag_agent_foundry_iq.py
 > 한 줄입니다. 개념·파일 설명(8.1~8.2)은 건너뛰고 8.3부터 시작해도 됩니다.
 
 > 위치: [`src/hosted_agents/`](src/hosted_agents/) — 7개 예제(01~06 + 06 Foundry IQ 변형)가 각각
-> 독립 배포용 azd 입력 소스 묶음(`main.py`·`Dockerfile`·`agent.yaml`·`agent.manifest.yaml`·
-> `requirements.txt`·`.env.example`·`.agentignore`·`.dockerignore`)로 들어 있습니다.
+> 독립 배포 가능한 azd 프로젝트(`azure.yaml`·`main.py`·`requirements.txt`·`Dockerfile`·
+> `.env.example`·`.gitignore`·`.agentignore`·`.dockerignore`)로 들어 있습니다.
 > 의존성: `agent-framework-foundry-hosting` (+ 02~04 워크플로우는 `agent-framework-orchestrations` 추가 필요)
 
 > ⚠️ Hosted Agent 배포는 현재 **preview**입니다. 아래 권장 **코드(ZIP) 배포 모드**는 로컬 Docker가
 > 필요 없습니다(Foundry가 원격에서 빌드). 컨테이너 모드를 선택할 때만 `linux/amd64` 이미지가 필요합니다.
-> 이 저장소의 MAF 1.8.1 코드는 **Responses 프로토콜 1.0.0**,
-> `agent-framework-foundry-hosting==1.0.0a260528`,
-> azd `azure.ai.agents` 확장 `0.1.37-preview` 조합으로 검증했습니다. 최신 확장/hosting은
-> Responses 2.0과 MAF core 1.10 이상을 요구할 수 있으므로 별도로 업그레이드하지 마세요.
+> 이 저장소는 공식 최신 형식인 단일 `azure.yaml`, **Responses 프로토콜 2.0.0**,
+> `agent-framework-foundry-hosting==1.0.0a260709`,
+> `azure.ai.agents>=1.0.0-beta.5` 조합을 사용합니다. deprecated된
+> `agent.manifest.yaml`·`agent.yaml`은 사용하지 않습니다.
+> beta.5 미만은 `--project-id`로 선택한 기존 프로젝트를 통합 매니페스트에 반영하지 못할 수 있습니다.
 > 배포 계정에는 Foundry 프로젝트 범위의 **Foundry Project Manager** 역할이 필요합니다.
 
 ### 8.1 로컬 스크립트 → Hosted Agent: 무엇이 바뀌나
@@ -889,40 +892,34 @@ python src/06_rag_agent_foundry_iq.py
 
 ### 8.2 폴더 구성 — 어떤 파일이 왜 필요한가
 
-각 `src/hosted_agents/<예제>/` 폴더는 빈 작업 폴더에서 `azd ai agent init -m`에 전달하는
-**독립 배포용 입력 소스 묶음**입니다. init이 `azure.yaml`을 생성하면 배포 가능한 azd 프로젝트가 됩니다.
-루트 예제 하나가 아래 파일 묶음으로 옮겨졌다고 보면 됩니다. 대부분 그대로 두면 되고, 보통 **`main.py`와 `requirements.txt`만**
-신경 쓰면 됩니다. **내가 만든 MAF 코드를 직접 배포할 때 무엇을 손으로 만들고 무엇이 `azd`로 자동 생성되는지**는 아래 💡를 참고하세요.
+각 `src/hosted_agents/<예제>/` 폴더는 `azd ai agent init -m`에 바로 전달할 수 있는
+**독립 배포용 프로젝트**입니다. `azure.yaml`이 Foundry 프로젝트 연결, 에이전트 런타임,
+Responses 프로토콜, 환경 변수와 컴퓨팅 리소스를 한 파일에서 선언합니다.
 
 | 파일 | 무엇을 하나 | 직접 손대나? |
 |------|-------------|-------------|
 | `main.py` | 에이전트를 만들고 `ResponsesHostServer`로 `/responses` 서버를 띄우는 **진입점**. 일반 예제는 `run()`, IQ 예제는 `run_async()` 사용 | 에이전트 로직을 바꿀 때만 |
-| `requirements.txt` | 컨테이너가 설치할 **런타임 의존성**. 메타패키지 대신 MAF 1.8.1 호환 하위 패키지를 정확히 고정 | 패키지 추가 시 |
-| `agent.manifest.yaml` | **`azd ai agent init -m`의 입력 파일**. 에이전트 이름·프로토콜(`responses`)·필요 env·기본 모델을 선언. init이 이걸 읽어 azd 프로젝트를 생성 | 이름/모델/env 바꿀 때 |
-| `agent.yaml` | **배포 런타임 스펙**(CPU·메모리·프로토콜·env). 이 저장소에 포함되어 있고 `azd deploy`가 참조 | 리소스 조정 시 |
+| `requirements.txt` | 코드 빌드가 설치할 **Hosted 전용 런타임 의존성**. Responses 2.0 호환 버전을 정확히 고정 | 패키지 추가 시 |
+| `azure.yaml` | **통합 azd 프로젝트 매니페스트**. Foundry 프로젝트, 에이전트 이름, 코드 배포, Responses `2.0.0`, env, CPU·메모리를 선언 | 이름/런타임/env/리소스 변경 시 |
 | `Dockerfile` | 컨테이너 이미지 정의(`python:3.14.5-slim`, 포트 8088). **코드(ZIP) 모드에선 안 쓰임**, 컨테이너 모드에서만 사용 | 컨테이너 모드일 때만 |
 | `.env.example` | **로컬 테스트용** 환경변수 템플릿. `cp .env.example .env` 후 값 입력(배포되면 런타임이 자동 주입) | 로컬 실행 전 |
-| `.dockerignore`·`.agentignore` | 이미지·코드 ZIP에서 제외할 파일(`.venv`·`__pycache__`·매니페스트 등) | 보통 그대로 |
+| `.gitignore`·`.dockerignore`·`.agentignore` | Git·이미지·코드 ZIP에서 제외할 파일(`.env`·`.azure/`·`.checkpoints/`·`.venv`·`azure.yaml` 등) | 보통 그대로 |
 
-> 💡 **내 코드를 배포할 때 이 파일들을 일일이 만들어야 하나요?** 손으로 만드는 건 **에이전트를 정의하는 최소 파일**뿐입니다 —
-> `main.py`(내 MAF 에이전트를 `ResponsesHostServer`로 감싼 코드)·`requirements.txt`·에이전트 정의 YAML
-> (`agent.manifest.yaml` 또는 `agent.yaml`), 컨테이너 모드면 `Dockerfile`. 이마저도 맨손으로 시작할 필요 없이
-> **`azd ai agent init -m <샘플 매니페스트>`가 이 골격을 `src/`에 내려받아** 주므로, 받은 `main.py`에 내 로직만 채우면 됩니다.
->
-> 반대로 **배포에 필요한 나머지는 `azd`가 자동 생성**합니다(직접 작성하지 않음): `azure.yaml`(프로젝트 설정)·`infra/`(Bicep
-> IaC)·`.azure/<env>/.env`. `azd ai agent init`이 매니페스트를 읽어 `azure.yaml`을 만들고/갱신하며, `azd provision`(또는
-> `azd up`)이 인프라를 처리합니다. **이 저장소의 7개 예제는 그 "에이전트 정의 파일"을 미리 채워 둔 것**이고, `azure.yaml`은
-> 저장소에 커밋돼 있지 않습니다(배포 시 작업 폴더에 생성).
+> 💡 공식 최신 형식에서는 `agent.manifest.yaml`과 독립 `agent.yaml`이 deprecated되었습니다.
+> 새 프로젝트는 [`azd ai agent init`](https://learn.microsoft.com/azure/foundry/agents/how-to/init-agent-project)으로
+> 생성하거나, 이 저장소처럼 [`azure.yaml`](https://learn.microsoft.com/azure/foundry/agents/how-to/author-azure-yaml)과
+> 소스 파일을 함께 제공해 `-m <azure.yaml>`로 초기화합니다. 로컬 구독·리소스 상태는
+> `.azure/<환경>/.env`에 별도로 생성되며 커밋하지 않습니다.
 
 ### 8.3 로컬 실행 → 배포 → 호출 — 01 예제
 
 `01_single_agent`을 **로컬에서 먼저 띄워 테스트한 뒤** 클라우드에 배포하고 호출하는 흐름입니다.
-다른 예제는 폴더 이름과 `--agent-name`만 [8.4](#84-예제별-배포-명령-7개-예제) 값으로 바꾸세요.
+다른 예제는 [8.4](#84-예제별-배포-명령-7개-예제)의 `azure.yaml` 경로만 바꾸세요.
 (변수 `$RG`·`$FOUNDRY`·`$PROJECT`는 Part 1.2 그대로)
 
 **① 준비 + init + 모델 고정** — 빈 작업 폴더에서
 ```bash
-azd extension install azure.ai.agents --version 0.1.37-preview --force
+azd ext install microsoft.foundry
 azd auth login                                             # 최초 1회
 REPO=~/GitHub/agent-framework-labs                          # 이 저장소를 clone 한 경로
 PROJECT_ID="$(az cognitiveservices account show -n $FOUNDRY -g $RG --query id -o tsv)/projects/$PROJECT"
@@ -933,13 +930,11 @@ az role assignment create --assignee-object-id "$ME" --assignee-principal-type U
   --role eadc314b-1a2d-4efa-be10-5d325db5065e --scope "$PROJECT_ID"
 
 mkdir -p ~/deploy/single && cd ~/deploy/single
-azd ai agent init --no-prompt \
-  -m "$REPO/src/hosted_agents/01_single_agent/agent.manifest.yaml" \
-  --agent-name maf-lab-single-agent \
+azd ai agent init . --no-prompt \
+  -m "$REPO/src/hosted_agents/01_single_agent/azure.yaml" \
   --project-id "$PROJECT_ID" \
-  --model-deployment gpt-5.4 --deploy-mode code --runtime python_3_14 \
-  --entry-point main.py --protocol responses --force
-azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME gpt-5.4 && azd env set AI_AGENT_PENDING_PROVISION ""
+  --model-deployment gpt-5.4
+azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME gpt-5.4
 ```
 
 **② 로컬 실행 & 테스트** — 배포 전에 동작을 먼저 확인합니다 (터미널 2개)
@@ -950,8 +945,10 @@ azd ai agent run
 # 터미널 2 — 로컬 에이전트에 질문
 azd ai agent invoke --local "Microsoft Agent Framework가 무엇인가요?"
 ```
-> azd 없이 바로 돌려보려면: `cd $REPO/src/hosted_agents/01_single_agent` → `.env.example`을 `.env`로 복사·입력 →
-> `pip install -r requirements.txt && python main.py`(로컬 `:8088`), 다른 터미널에서 `curl localhost:8088/responses ...`로 호출.
+> azd 없이 바로 돌려보려면: `cd $REPO/src/hosted_agents/01_single_agent` →
+> `python -m venv .venv && source .venv/bin/activate` → `.env.example`을 `.env`로 복사·입력 →
+> `pip install -r requirements.txt && python main.py`(로컬 `:8088`), 다른 터미널에서
+> `curl localhost:8088/responses ...`로 호출.
 
 **③ 배포 & 호출** — 로컬 서버를 `Ctrl+C`로 끈 뒤
 ```bash
@@ -960,14 +957,15 @@ azd ai agent invoke "Microsoft Agent Framework가 무엇인가요?"   # 배포�
 ```
 `azd deploy` 출력의 **플레이그라운드 링크**로 웹 UI에서도 대화할 수 있습니다. REST·로그 등은 **8.5** 참고.
 
-> 💡 **빈 폴더에서 init 하는 이유**: init이 작업 폴더에 `azure.yaml`을 생성하므로, 매니페스트가 있는 폴더에서
-> 실행하면 `target is inside the manifest directory` 오류가 납니다. · 모델이 새로 만들어지면 init이 만든
-> `azure.yaml`의 `deployments` 블록을 지우고 `azd env set`으로 기존 배포(`gpt-5.4`)를 고정하세요.
-> · 예제별 전체 명령은 각 폴더 [`README.md`](src/hosted_agents/)에도 있습니다.
+> 💡 각 예제의 `azure.yaml`은 모델을 새로 만들지 않고 Part 1에서 만든 **기존 Foundry 프로젝트와
+> 모델 배포를 연결**하도록 구성했습니다. `--project-id`와 `--model-deployment`를 반드시 전달하세요.
+> `init`의 첫 인자 `.`은 샘플을 현재 작업 폴더에 배치합니다. 생략하면 에이전트 이름의
+> 하위 폴더가 만들어지므로 이후 명령도 그 폴더에서 실행해야 합니다.
+> 예제별 전체 명령은 각 폴더 [`README.md`](src/hosted_agents/)에도 있습니다.
 
 ### 8.4 예제별 배포 명령 (7개 예제)
 
-| 예제 | `--agent-name` | 유형 | 배포 전 전제 | 원격 테스트 질문(예) |
+| 예제 | `azure.yaml`의 에이전트 이름 | 유형 | 배포 전 전제 | 원격 테스트 질문(예) |
 |------|----------------|------|--------------|----------------------|
 | [`01_single_agent/`](src/hosted_agents/01_single_agent/) | `maf-lab-single-agent` | 단일 에이전트 | — | `Microsoft Agent Framework가 무엇인가요?` |
 | [`02_sequential_workflow/`](src/hosted_agents/02_sequential_workflow/) | `maf-lab-sequential-workflow` | 워크플로우 `.as_agent()` | — | `Kubernetes 클러스터 비용 최적화 전략` |
@@ -977,8 +975,8 @@ azd ai agent invoke "Microsoft Agent Framework가 무엇인가요?"   # 배포�
 | [`06_rag_agent/`](src/hosted_agents/06_rag_agent/) | `maf-lab-rag-agent` | 단일 + 검색 함수 도구 | ① 인덱스 시드 ② 에이전트 ID RBAC | `Pro 요금제는 얼마이고 기술 지원은 얼마나 빨리 받나요?` |
 | [`06_rag_agent_foundry_iq/`](src/hosted_agents/06_rag_agent_foundry_iq/) | `maf-lab-rag-iq-agent` | 단일 + 컨텍스트 프로바이더 | ① 지식 베이스 생성 ② 에이전트 ID RBAC | `Pro 요금제는 얼마이고 기술 지원은 얼마나 빨리 받나요?` |
 
-각 예제는 **8.3과 동일한 흐름**으로 배포합니다 — `azd ai agent init`의 `-m`(매니페스트 경로)과
-`--agent-name`만 위 표 값으로 바꾸면 됩니다. **복사·붙여넣기용 전체 명령(전제·env·배포 후 RBAC 포함)은
+각 예제는 **8.3과 동일한 흐름**으로 배포합니다. `azd ai agent init -m`에 해당 폴더의
+`azure.yaml`을 전달하면 표의 이름으로 초기화됩니다. **복사·붙여넣기용 전체 명령(전제·env·배포 후 RBAC 포함)은
 각 폴더의 [`README.md`](src/hosted_agents/)에 그대로 들어 있습니다.** 유형별 차이만 요약하면:
 
 - **02·03·04 (워크플로우)** — `main.py`가 `SequentialBuilder`/`GroupChatBuilder`/`ConcurrentBuilder`의
@@ -1016,6 +1014,7 @@ TOKEN=$(az account get-access-token --resource https://ai.azure.com --query acce
 # <에이전트-이름>은 8.4 표의 값(예: maf-lab-single-agent / maf-lab-rag-agent)
 curl -X POST "$BASE_URL/agents/<에이전트-이름>/endpoint/protocols/openai/responses?api-version=v1" \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -H "Foundry-Features: HostedAgents=V1Preview" \
   -d '{"input": "<질문>", "store": false}'
 #  본문에 "stream": true 를 추가하면 서버-전송 이벤트(SSE)로 토큰을 스트리밍받습니다.
 ```
@@ -1029,9 +1028,10 @@ curl -X POST "$BASE_URL/agents/<에이전트-이름>/endpoint/protocols/openai/r
 ### 8.6 (대안) 컨테이너 이미지로 배포
 
 코드(ZIP) 대신 각 폴더의 `Dockerfile`(`python:3.14.5-slim`, 포트 `8088`)로 **직접 빌드한 이미지**를
-배포할 수도 있습니다. `init` 시 `--deploy-mode container`(런타임은 Dockerfile이 정의하므로 `--runtime` 생략)로만
-바꾸면 됩니다. 단, **`linux/amd64`** 이미지가 필요하고(Apple Silicon은 `docker build --platform linux/amd64 .`),
-Azure Container Registry가 추가로 필요합니다(azd가 **AcrPull** 권한 자동 부여).
+배포할 수도 있습니다. 이 경우 **8.3의 초기화 명령에 `--deploy-mode container`를 추가**하세요.
+`azd`가 `azure.yaml`의 코드 배포 설정을 Docker 원격 빌드 설정으로 변환합니다. 단,
+**`linux/amd64`** 이미지가 필요하고(Apple Silicon은 `docker build --platform linux/amd64 .`),
+Azure Container Registry가 추가로 필요합니다.
 
 > 관측(트레이싱): Hosted Agent는 **server-side 트레이싱**이라 **코드 변경이 필요 없습니다**.
 > Foundry 프로젝트에 **Application Insights를 연결**하면 자동으로 켜지며(런타임이
@@ -1057,9 +1057,10 @@ Azure Container Registry가 추가로 필요합니다(azd가 **AcrPull** 권한 
 | MCP 도구를 호출 안 함 | `tools=` 전달 누락, `async with mcp_tool:` 밖에서 실행, 서버 URL 확인 |
 | RAG가 문서 밖 내용을 지어냄 | 검색 결과 빈약 또는 "추측 금지" 지시문 누락 |
 | GroupChat이 끝나지 않음 | `max_rounds` 미설정 |
-| Hosted Agent: `ModuleNotFoundError: agent_framework_foundry_hosting` | `pip install agent-framework-foundry-hosting` (배포 시점 의존성) |
-| Hosted Agent: `azd ai agent` 명령 없음 | `azd extension install azure.ai.agents --version 0.1.37-preview --force` 후 `azd auth login` |
-| Hosted Agent: 프로토콜/manifest 오류 | `agent.yaml`·manifest의 Responses `1.0.0`, hosting `a260528`, azd 확장 `0.1.37-preview` 조합 확인 |
+| Hosted Agent: `ModuleNotFoundError: agent_framework_foundry_hosting` | 해당 예제의 `requirements.txt`를 새 가상환경에 설치 |
+| Hosted Agent: `azd ai agent` 명령 없음 | `azd ext install microsoft.foundry` 후 `azd auth login` |
+| Hosted Agent: `azure.yaml`/프로토콜 오류 | `azure.ai.agents>=1.0.0-beta.5`, Responses `2.0.0`, hosting `1.0.0a260709` 조합 확인 |
+| Hosted Agent: 레거시 manifest 경고 | deprecated된 `agent.manifest.yaml`·`agent.yaml` 대신 예제의 단일 `azure.yaml` 사용 |
 | Hosted Agent: 배포 후 ARM 이미지 오류 | `linux/amd64` 필요 — `docker build --platform linux/amd64 .` |
 | Hosted Agent: 인증 실패 | 컨테이너는 `DefaultAzureCredential`(관리 ID) 사용, 로컬은 `az login` |
 
@@ -1073,5 +1074,7 @@ Azure Container Registry가 추가로 필요합니다(azd가 **AcrPull** 권한 
 
 - [Microsoft Agent Framework (GitHub)](https://github.com/microsoft/agent-framework)
 - [Microsoft Foundry 문서](https://learn.microsoft.com/azure/foundry/)
+- [Hosted Agent 프로젝트 초기화](https://learn.microsoft.com/azure/foundry/agents/how-to/init-agent-project)
+- [Hosted Agent용 azure.yaml 작성](https://learn.microsoft.com/azure/foundry/agents/how-to/author-azure-yaml)
 - [MCP 프로토콜 명세](https://modelcontextprotocol.io/)
 - [Microsoft Learn MCP 서버](https://learn.microsoft.com/training/support/mcp)

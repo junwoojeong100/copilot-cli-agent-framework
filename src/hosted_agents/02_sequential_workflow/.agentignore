@@ -1,9 +1,10 @@
 # azd ai agent 코드 ZIP 제외 패턴
-agent.manifest.yaml
-agent.yaml
+azure.yaml
 .env.example
 .env
 .env.*
+.azure/
+.checkpoints/
 .venv/
 __pycache__/
 *.pyc

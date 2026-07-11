@@ -4,9 +4,10 @@
 배포합니다. Azure AI Search 하이브리드(키워드+벡터) 검색을 **함수 도구**로 노출해,
 에이전트가 질문을 받으면 스스로 검색→증강→생성을 수행합니다.
 
-> **호환성 고정**: MAF `1.8.1` + hosting `1.0.0a260528` + Responses `1.0.0` +
-> azd `azure.ai.agents` 확장 `0.1.37-preview` 조합입니다. 최신 확장/hosting으로
-> 개별 업그레이드하면 Responses 2.0·MAF core 1.10 이상 요구사항과 충돌할 수 있습니다.
+> **Hosted 전용 호환성**: MAF core `1.11.0` + foundry/openai `1.10.1` +
+> hosting `1.0.0a260709` + Responses `2.0.0` +
+> azd `azure.ai.agents>=1.0.0-beta.5` 조합입니다.
+> 콘솔 예제의 MAF 1.8.1 환경과 분리된 가상환경에 설치하세요.
 > 배포 계정에는 Foundry 프로젝트 범위의 **Foundry Project Manager** 역할이 필요합니다.
 
 ## 전제 — 인덱스 시드
@@ -64,31 +65,23 @@ server.run()
 ## 로컬 실행 & 배포
 
 ```bash
-azd extension install azure.ai.agents --version 0.1.37-preview --force
+azd ext install microsoft.foundry
 azd auth login
 mkdir -p ~/deploy/rag-agent && cd ~/deploy/rag-agent
 REPO="/path/to/agent-framework-labs"
-azd ai agent init --no-prompt \
-  -m "$REPO/src/hosted_agents/06_rag_agent/agent.manifest.yaml" \
-  --agent-name maf-lab-rag-agent \
+azd ai agent init . --no-prompt \
+  -m "$REPO/src/hosted_agents/06_rag_agent/azure.yaml" \
   --project-id "<Foundry 프로젝트 리소스 ID>" \
-  --model-deployment gpt-5.4 \
-  --deploy-mode code --runtime python_3_14 --entry-point main.py \
-  --protocol responses --force
+  --model-deployment gpt-5.4
 
 # .env.example을 참고해 검색/임베딩 관련 환경 변수까지 설정
-export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
-export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4"
 export SEARCH_SERVICE_ENDPOINT="https://<your-search>.search.windows.net"
 export SEARCH_INDEX_NAME="maf-lab-knowledge-v2"
 export AZURE_OPENAI_ENDPOINT="https://<resource>.cognitiveservices.azure.com/"
 export EMBEDDING_DEPLOYMENT_NAME="text-embedding-3-large"
 export AZURE_OPENAI_API_VERSION="2024-10-21"
 
-# 배포 시 기존 모델 배포를 그대로 사용하려면 init이 만든 azure.yaml의
-# deployments 블록을 제거하고 azd 환경값을 고정합니다.
-azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME "$AZURE_AI_MODEL_DEPLOYMENT_NAME"
-azd env set AI_AGENT_PENDING_PROVISION ""
+azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME gpt-5.4
 azd env set SEARCH_SERVICE_ENDPOINT "$SEARCH_SERVICE_ENDPOINT"
 azd env set SEARCH_INDEX_NAME "$SEARCH_INDEX_NAME"
 azd env set AZURE_OPENAI_ENDPOINT "$AZURE_OPENAI_ENDPOINT"

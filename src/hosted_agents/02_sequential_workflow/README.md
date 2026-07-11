@@ -7,10 +7,10 @@
 > 핵심: MAF 워크플로우는 Foundry Agent SDK v2로 재작성하지 않고도
 > `.as_agent()` 한 줄로 Hosted Agent가 됩니다.
 
-> **호환성 고정**: MAF `1.8.1` + orchestrations `1.0.0rc3` +
-> hosting `1.0.0a260528` + Responses `1.0.0` +
-> azd `azure.ai.agents` 확장 `0.1.37-preview` 조합입니다. 최신 확장/hosting으로
-> 개별 업그레이드하면 Responses 2.0·MAF core 1.10 이상 요구사항과 충돌할 수 있습니다.
+> **Hosted 전용 호환성**: MAF core `1.11.0` + foundry/openai `1.10.1` +
+> orchestrations `1.0.0` + hosting `1.0.0a260709` + Responses `2.0.0` +
+> azd `azure.ai.agents>=1.0.0-beta.5` 조합입니다.
+> 콘솔 예제의 MAF 1.8.1 환경과 분리된 가상환경에 설치하세요.
 > 배포 계정에는 Foundry 프로젝트 범위의 **Foundry Project Manager** 역할이 필요합니다.
 
 ## 핵심 코드 (`main.py`)
@@ -57,27 +57,17 @@ server.run()             # 동기 호출
 ## 로컬 실행
 
 ```bash
-azd extension install azure.ai.agents --version 0.1.37-preview --force
+azd ext install microsoft.foundry
 azd auth login
 
-# 매니페스트로 azd 프로젝트 초기화 (빈 폴더에서 실행)
+# 통합 azure.yaml로 azd 프로젝트 초기화 (빈 폴더에서 실행)
 mkdir -p ~/deploy/sequential-workflow && cd ~/deploy/sequential-workflow
 REPO="/path/to/agent-framework-labs"
-azd ai agent init --no-prompt \
-  -m "$REPO/src/hosted_agents/02_sequential_workflow/agent.manifest.yaml" \
-  --agent-name maf-lab-sequential-workflow \
+azd ai agent init . --no-prompt \
+  -m "$REPO/src/hosted_agents/02_sequential_workflow/azure.yaml" \
   --project-id "<Foundry 프로젝트 리소스 ID>" \
-  --model-deployment gpt-5.4 \
-  --deploy-mode code --runtime python_3_14 --entry-point main.py \
-  --protocol responses --force
-
-export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
-export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4"
-
-# 배포 시 기존 모델 배포를 그대로 사용하려면 init이 만든 azure.yaml의
-# deployments 블록을 제거하고 azd 환경값을 고정합니다.
-azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME "$AZURE_AI_MODEL_DEPLOYMENT_NAME"
-azd env set AI_AGENT_PENDING_PROVISION ""
+  --model-deployment gpt-5.4
+azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME gpt-5.4
 
 # 터미널 1: 로컬 호스트 실행 (http://localhost:8088, 블로킹)
 azd ai agent run

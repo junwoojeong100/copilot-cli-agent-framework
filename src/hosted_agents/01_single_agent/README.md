@@ -3,9 +3,10 @@
 이 저장소 `src/01_single_agent.py`의 **기술 어시스턴트** 에이전트를 그대로 가져와,
 Microsoft Foundry **Hosted Agent**(관리형 컨테이너)로 배포합니다.
 
-> **호환성 고정**: MAF `1.8.1` + hosting `1.0.0a260528` + Responses `1.0.0` +
-> azd `azure.ai.agents` 확장 `0.1.37-preview` 조합입니다. 최신 확장/hosting으로
-> 개별 업그레이드하면 Responses 2.0·MAF core 1.10 이상 요구사항과 충돌할 수 있습니다.
+> **Hosted 전용 호환성**: MAF core `1.11.0` + foundry/openai `1.10.1` +
+> hosting `1.0.0a260709` + Responses `2.0.0` +
+> azd `azure.ai.agents>=1.0.0-beta.5` 조합입니다.
+> 콘솔 예제의 MAF 1.8.1 환경과 분리된 가상환경에 설치하세요.
 > 배포 계정에는 Foundry 프로젝트 범위의 **Foundry Project Manager** 역할이 필요합니다.
 
 ## 핵심 코드 (`main.py`)
@@ -46,50 +47,43 @@ finally:
 
 ## 파일 구성
 
-> 이 폴더는 `azd init`/`azd ai agent init`의 **산출물이 아니라 입력(소스)** 입니다.
-> `azd`가 자동 생성하는 `azure.yaml`·`infra/`·`.azure/`는 여기에 없으며, 빈 작업 폴더에서
-> `azd ai agent init`을 실행할 때 생성됩니다(아래 *로컬 실행* 참고).
+> 이 폴더는 `azure.yaml`과 앱 소스를 함께 제공하는 **완결된 azd 샘플**입니다.
+> `azd ai agent init -m <azure.yaml>`이 이를 작업 폴더로 복사하고, 로컬 구독·리소스
+> 상태만 `.azure/`에 생성합니다.
 
 | 역할 | 파일 | 설명 |
 | --- | --- | --- |
 | **앱 본체 (배포 페이로드)** | `main.py` | 에이전트 정의 + `ResponsesHostServer`로 `/responses` 서버 구동(진입점) |
-| | `requirements.txt` | 코드(ZIP) 원격 빌드가 설치할 런타임 의존성. 메타패키지 대신 하위 패키지만 명시 |
-| **azd 입력·배포 정의** | `agent.manifest.yaml` | **`azd ai agent init -m`의 입력 파일(딱 1개)**. 이름·프로토콜·env·기본 모델 선언 |
-| | `agent.yaml` | 배포 런타임 스펙(CPU·메모리·프로토콜·env). `azd deploy`가 참조 |
+| | `requirements.txt` | 코드(ZIP) 원격 빌드가 설치할 Responses 2.0 호환 런타임 의존성 |
+| **azd 입력·배포 정의** | `azure.yaml` | Foundry 프로젝트 연결, 에이전트 이름, 코드 배포, Responses 2.0, env, CPU·메모리를 통합 선언 |
 | | `Dockerfile` | 컨테이너 배포 모드 전용 이미지 정의. **코드(ZIP) 모드에선 미사용** |
 | **로컬·보조** | `.env.example` | 로컬 테스트용 환경변수 템플릿(`cp .env.example .env`) |
-| | `.agentignore`·`.dockerignore` | 코드 ZIP·이미지에서 제외할 파일(`.venv`·`__pycache__`·매니페스트 등) |
+| | `.gitignore`·`.agentignore`·`.dockerignore` | Git·코드 ZIP·이미지에서 제외할 파일(`.env`·`.azure/`·`.venv`·`__pycache__`·`azure.yaml` 등) |
+
+> `agent.manifest.yaml`과 독립 `agent.yaml`은 공식 문서에서 deprecated되었습니다.
+> 이 예제는 최신 단일 `azure.yaml` 방식만 사용합니다.
 
 ## 사전 준비
 
 ```bash
-# Azure Developer CLI + AI agent 확장
-azd extension install azure.ai.agents --version 0.1.37-preview --force
+# Azure Developer CLI + Microsoft Foundry 확장
+azd ext install microsoft.foundry
 azd auth login
 ```
 
 ## 로컬 실행
 
 ```bash
-# 1) 매니페스트로 azd 프로젝트 초기화 (빈 폴더에서 실행)
+# 1) 통합 azure.yaml로 azd 프로젝트 초기화 (빈 폴더에서 실행)
 mkdir -p ~/deploy/single-agent && cd ~/deploy/single-agent
 REPO="/path/to/agent-framework-labs"
-azd ai agent init --no-prompt \
-  -m "$REPO/src/hosted_agents/01_single_agent/agent.manifest.yaml" \
-  --agent-name maf-lab-single-agent \
+azd ai agent init . --no-prompt \
+  -m "$REPO/src/hosted_agents/01_single_agent/azure.yaml" \
   --project-id "<Foundry 프로젝트 리소스 ID>" \
-  --model-deployment gpt-5.4 \
-  --deploy-mode code --runtime python_3_14 --entry-point main.py \
-  --protocol responses --force
+  --model-deployment gpt-5.4
 
 # 2) 환경 변수 설정
-export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
-export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4"
-
-# 배포 시 기존 모델 배포를 그대로 사용하려면 init이 만든 azure.yaml의
-# deployments 블록을 제거하고 azd 환경값을 고정합니다.
-azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME "$AZURE_AI_MODEL_DEPLOYMENT_NAME"
-azd env set AI_AGENT_PENDING_PROVISION ""
+azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME gpt-5.4
 
 # 3) 터미널 1: 로컬 호스트 실행 (http://localhost:8088, 블로킹)
 azd ai agent run

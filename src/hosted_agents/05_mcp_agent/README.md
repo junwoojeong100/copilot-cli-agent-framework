@@ -3,9 +3,10 @@
 이 저장소 `src/05_mcp_agent.py`의 MCP 도구 연동 에이전트를 Foundry **Hosted Agent**로
 배포합니다. 공개 MCP 서버 **Microsoft Learn MCP**에 연결해 공식 문서를 검색합니다.
 
-> **호환성 고정**: MAF `1.8.1` + hosting `1.0.0a260528` + Responses `1.0.0` +
-> azd `azure.ai.agents` 확장 `0.1.37-preview` 조합입니다. 최신 확장/hosting으로
-> 개별 업그레이드하면 Responses 2.0·MAF core 1.10 이상 요구사항과 충돌할 수 있습니다.
+> **Hosted 전용 호환성**: MAF core `1.11.0` + foundry/openai `1.10.1` +
+> hosting `1.0.0a260709` + Responses `2.0.0` +
+> azd `azure.ai.agents>=1.0.0-beta.5` 조합입니다.
+> 콘솔 예제의 MAF 1.8.1 환경과 분리된 가상환경에 설치하세요.
 > 배포 계정에는 Foundry 프로젝트 범위의 **Foundry Project Manager** 역할이 필요합니다.
 
 ## 호스팅에서의 차이 — 서버 측 MCP 등록
@@ -30,7 +31,8 @@ server.run()
 ```
 
 > 인증이 필요한 MCP 서버는 `headers={"Authorization": "Bearer ..."}`를 추가하고,
-> 비밀값은 `agent.yaml`의 `environment_variables`로 주입하세요(코드에 하드코딩 금지).
+> 비밀값은 `azure.yaml`의 `environmentVariables`에서 azd 환경 변수로
+> 참조하세요(코드에 하드코딩 금지).
 
 ## 환경 변수
 
@@ -43,25 +45,15 @@ server.run()
 ## 로컬 실행 & 배포
 
 ```bash
-azd extension install azure.ai.agents --version 0.1.37-preview --force
+azd ext install microsoft.foundry
 azd auth login
 mkdir -p ~/deploy/mcp-agent && cd ~/deploy/mcp-agent
 REPO="/path/to/agent-framework-labs"
-azd ai agent init --no-prompt \
-  -m "$REPO/src/hosted_agents/05_mcp_agent/agent.manifest.yaml" \
-  --agent-name maf-lab-mcp-agent \
+azd ai agent init . --no-prompt \
+  -m "$REPO/src/hosted_agents/05_mcp_agent/azure.yaml" \
   --project-id "<Foundry 프로젝트 리소스 ID>" \
-  --model-deployment gpt-5.4 \
-  --deploy-mode code --runtime python_3_14 --entry-point main.py \
-  --protocol responses --force
-
-export FOUNDRY_PROJECT_ENDPOINT="https://<account>.services.ai.azure.com/api/projects/<project>"
-export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-5.4"
-
-# 배포 시 기존 모델 배포를 그대로 사용하려면 init이 만든 azure.yaml의
-# deployments 블록을 제거하고 azd 환경값을 고정합니다.
-azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME "$AZURE_AI_MODEL_DEPLOYMENT_NAME"
-azd env set AI_AGENT_PENDING_PROVISION ""
+  --model-deployment gpt-5.4
+azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME gpt-5.4
 
 azd ai agent run                                   # 터미널 1: 로컬 호스트(:8088, 블로킹)
 azd ai agent invoke --local "Agent Framework의 Handoff가 무엇인지 공식 문서 근거로 설명해줘"  # 터미널 2

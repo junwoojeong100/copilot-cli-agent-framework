@@ -1,10 +1,10 @@
 # Foundry Hosted Agent 런타임 의존성 (Foundry IQ RAG)
-# MAF 1.8.x + Responses 프로토콜 1.0 조합으로 검증된 버전을 고정합니다.
-agent-framework-core==1.8.1
-agent-framework-openai==1.8.1
-agent-framework-foundry==1.8.1
+# Responses 2.0과 호환되는 Hosted 전용 조합입니다.
+agent-framework-core==1.11.0
+agent-framework-openai==1.10.1
+agent-framework-foundry==1.10.1
 agent-framework-azure-ai-search==1.0.0b260521
-agent-framework-foundry-hosting==1.0.0a260528
+agent-framework-foundry-hosting==1.0.0a260709
 
 # 호스팅 패키지가 런타임에 사용하는 MCP 예외 타입
 mcp==1.27.2

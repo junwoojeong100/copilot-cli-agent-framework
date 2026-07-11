@@ -13,8 +13,10 @@
 
 ## 기술 스택
 
-- **프레임워크**: core/foundry **1.8.1** — 메타패키지 대신 루트 `requirements.txt`의
-  검증된 하위 패키지를 고정한다(import·빌더·호환 매트릭스 상세는 스킬).
+- **콘솔 프레임워크**: core/foundry **1.8.1** — 메타패키지 대신 루트
+  `requirements.txt`의 검증된 하위 패키지를 고정한다.
+- **Hosted Agent 프레임워크**: core **1.11.0**, foundry/openai **1.10.1**,
+  hosting **1.0.0a260709** — 예제별 `requirements.txt`에서 별도 관리한다.
 - **인증**: `azure-identity` → `AzureCliCredential` (로컬 `az login`, 키리스)
 - **모델**: Microsoft Foundry 배포 모델 (기본 `gpt-5.4`)
 - **환경변수**: `python-dotenv` → 루트 `.env`
@@ -24,8 +26,9 @@
 - 핵심 에이전트 클래스는 **`agent_framework.Agent`** (이 버전에 `ChatAgent` 없음).
 - 콘솔의 에이전트·워크플로우 호출은 **`async/await`**, 진입점은 `asyncio.run(main())`.
 - `FoundryChatClient`는 **한 번만** 생성해 공유하고, 스트리밍은 `src/_streaming.py` 헬퍼를 쓴다.
-- Hosted Agent는 Responses `1.0.0`/hosting `1.0.0a260528` 조합을 사용한다. 일반 예제는
-  `server.run()`, 비동기 프로바이더가 있는 Foundry IQ는 `await server.run_async()`를 쓴다.
+- Hosted Agent는 단일 `azure.yaml`, Responses `2.0.0`,
+  `azure.ai.agents>=1.0.0-beta.5` 형식을 사용한다. 일반 예제는 `server.run()`,
+  비동기 프로바이더가 있는 Foundry IQ는 `await server.run_async()`를 쓴다.
 - `instructions`·사용자 응답은 **한국어**, 비밀키·엔드포인트는 `.env`에서 로드한다.
 - 새 예제는 `src/`에 `NN_<name>.py`로 추가하고, 원격 반영은 PR 기반으로만 한다(`AGENTS.md`).
 

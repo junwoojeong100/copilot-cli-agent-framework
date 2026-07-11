@@ -9,21 +9,22 @@ description: "Microsoft Agent Framework(Python, agent-framework 1.8.x) SDK로 AI
 따라야 하는 패턴과 레퍼런스입니다. 핵심 예제(`01`~`06`)는 `src/`의 콘솔 스크립트이며,
 `FoundryChatClient`로 Microsoft Foundry에 연결합니다.
 
-> **기준 버전**: MAF core/foundry `1.8.1`. 메타패키지 `agent-framework`는 사용하지 않고,
-> 아래처럼 예제에 필요한 하위 패키지를 정확히 고정합니다. 아래 API 시그니처는 이 조합으로
-> 검증되었습니다.
+> **기준 버전**: 콘솔 예제는 MAF core/foundry `1.8.1`입니다. Part 8 Hosted Agent는
+> Responses 2.0 지원을 위해 별도 최신 조합을 사용합니다. 메타패키지 `agent-framework`는
+> 사용하지 않고 예제에 필요한 하위 패키지를 정확히 고정합니다.
 
 | 용도 | 고정 버전 |
 |------|-----------|
-| Core / OpenAI / Foundry | `agent-framework-core==1.8.1` · `agent-framework-openai==1.8.1` · `agent-framework-foundry==1.8.1` |
-| 오케스트레이션 | `agent-framework-orchestrations==1.0.0rc3` |
+| 콘솔 Core / OpenAI / Foundry | `agent-framework-core==1.8.1` · `agent-framework-openai==1.8.1` · `agent-framework-foundry==1.8.1` |
+| 콘솔 오케스트레이션 | `agent-framework-orchestrations==1.0.0rc3` |
 | Azure AI Search 컨텍스트 프로바이더 | `agent-framework-azure-ai-search==1.0.0b260521` |
-| Hosted Agent | `agent-framework-foundry-hosting==1.0.0a260528` |
-| Hosted 프로토콜 / azd 확장 | Responses `1.0.0` / `azure.ai.agents==0.1.37-preview` |
+| Hosted Core / OpenAI / Foundry | `agent-framework-core==1.11.0` · `agent-framework-openai==1.10.1` · `agent-framework-foundry==1.10.1` |
+| Hosted 오케스트레이션 / hosting | `agent-framework-orchestrations==1.0.0` · `agent-framework-foundry-hosting==1.0.0a260709` |
+| Hosted 프로토콜 / azd 확장 | Responses `2.0.0` / `azure.ai.agents>=1.0.0-beta.5` · 단일 `azure.yaml` |
 
-> `agent-framework-orchestrations==1.0.0`과 최신 Azure AI Search/hosting 프리릴리스는
-> MAF core 1.9 이상을 요구할 수 있습니다. 개별 패키지만 임의로 업그레이드하지 말고
-> 저장소의 `requirements.txt` 조합을 함께 갱신·검증합니다.
+> 콘솔과 Hosted 예제는 핵심 패키지 버전이 다르므로 같은 가상환경에 동시에 설치하지
+> 않습니다. 루트와 `src/hosted_agents/<예제>/`의 `requirements.txt`를 각각 독립된
+> 가상환경에서 설치하고 검증합니다.
 
 ## 1. SDK Import 경로
 
