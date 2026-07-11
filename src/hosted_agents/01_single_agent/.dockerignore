@@ -6,9 +6,9 @@ __pycache__
 .Python
 .env
 .env.*
+.azure/
 .git
 .DS_Store
 README.md
-agent.yaml
-agent.manifest.yaml
+azure.yaml
 .agentignore

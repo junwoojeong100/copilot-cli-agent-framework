@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.5'
+name: maf-lab-rag-agent
+services:
+  ai-project:
+    host: azure.ai.project
+  maf-lab-rag-agent:
+    host: azure.ai.agent
+    project: .
+    language: python
+    codeConfiguration:
+      runtime: python_3_14
+      entryPoint: main.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: maf-lab-rag-agent
+    description: 하이브리드 검색 도구를 사용하는 Agent Framework RAG 실습입니다.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      - name: SEARCH_SERVICE_ENDPOINT
+        value: ${SEARCH_SERVICE_ENDPOINT}
+      - name: SEARCH_INDEX_NAME
+        value: ${SEARCH_INDEX_NAME}
+      - name: AZURE_OPENAI_ENDPOINT
+        value: ${AZURE_OPENAI_ENDPOINT}
+      - name: EMBEDDING_DEPLOYMENT_NAME
+        value: ${EMBEDDING_DEPLOYMENT_NAME}
+      - name: AZURE_OPENAI_API_VERSION
+        value: ${AZURE_OPENAI_API_VERSION}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: microsoft.foundry
