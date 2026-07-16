@@ -7,7 +7,7 @@ agent-framework-orchestrations==1.0.0
 agent-framework-foundry-hosting==1.0.0a260709
 
 # 호스팅 패키지가 런타임에 사용하는 MCP 예외 타입
-mcp==1.27.2
+mcp==1.28.1
 
 # 인증 / 로컬 .env 로딩
 azure-identity==1.25.3
