@@ -15,7 +15,7 @@ openai==2.38.0
 azure-search-documents==11.7.0b2
 
 # 모델 컨텍스트 프로토콜(MCP)
-mcp==1.27.2
+mcp==1.28.1
 
 # 유틸리티
 python-dotenv==1.2.2
